@@ -22,9 +22,9 @@ import (
 	"strconv"
 	"strings"
 
+	"../cbor"
+	"./generated"
 	"github.com/antlr/antlr4/runtime/Go/antlr"
-	"github.com/aws/aws-dax-go/dax/internal/cbor"
-	"github.com/aws/aws-dax-go/dax/internal/parser/generated"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/dynamodb"

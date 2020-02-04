@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/aws/aws-dax-go/dax/internal/cbor"
+	"../cbor"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/dynamodb"

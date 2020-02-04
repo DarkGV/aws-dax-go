@@ -21,9 +21,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/aws/aws-dax-go/dax/internal/cbor"
-	"github.com/aws/aws-dax-go/dax/internal/lru"
-	"github.com/aws/aws-dax-go/dax/internal/parser"
+	"../cbor"
+	"../lru"
+	"../parser"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"

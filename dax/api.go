@@ -18,7 +18,7 @@ package dax
 import (
 	"io"
 
-	"github.com/aws/aws-dax-go/dax/internal/client"
+	"./internal/client"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -297,7 +297,7 @@ func (d *Dax) QueryPages(input *dynamodb.QueryInput, fn func(*dynamodb.QueryOutp
 }
 
 func (d *Dax) QueryPagesWithContext(ctx aws.Context, input *dynamodb.QueryInput, fn func(*dynamodb.QueryOutput, bool) bool, opts ...request.Option) error {
-	p := request.Pagination {
+	p := request.Pagination{
 		NewRequest: func() (*request.Request, error) {
 			var inCpy *dynamodb.QueryInput
 			if input != nil {
@@ -323,7 +323,7 @@ func (d *Dax) ScanPages(input *dynamodb.ScanInput, fn func(*dynamodb.ScanOutput,
 }
 
 func (d *Dax) ScanPagesWithContext(ctx aws.Context, input *dynamodb.ScanInput, fn func(*dynamodb.ScanOutput, bool) bool, opts ...request.Option) error {
-	p := request.Pagination {
+	p := request.Pagination{
 		NewRequest: func() (*request.Request, error) {
 			var inCpy *dynamodb.ScanInput
 			if input != nil {
@@ -435,18 +435,18 @@ func (d *Dax) DescribeContinuousBackupsRequest(*dynamodb.DescribeContinuousBacku
 	return
 }
 
-func (d *Dax) DescribeContributorInsights(*dynamodb.DescribeContributorInsightsInput) (*dynamodb.DescribeContributorInsightsOutput, error) {
-	return nil, d.unImpl()
-}
+// func (d *Dax) DescribeContributorInsights(*dynamodb.DescribeContributorInsightsInput) (*dynamodb.DescribeContributorInsightsOutput, error) {
+// 	return nil, d.unImpl()
+// }
 
-func (d *Dax) DescribeContributorInsightsWithContext(aws.Context, *dynamodb.DescribeContributorInsightsInput, ...request.Option) (*dynamodb.DescribeContributorInsightsOutput, error) {
-	return nil, d.unImpl()
-}
+// func (d *Dax) DescribeContributorInsightsWithContext(aws.Context, *dynamodb.DescribeContributorInsightsInput, ...request.Option) (*dynamodb.DescribeContributorInsightsOutput, error) {
+// 	return nil, d.unImpl()
+// }
 
-func (d *Dax) DescribeContributorInsightsRequest(*dynamodb.DescribeContributorInsightsInput) (r *request.Request, o *dynamodb.DescribeContributorInsightsOutput) {
-	d.unImpl()
-	return
-}
+// func (d *Dax) DescribeContributorInsightsRequest(*dynamodb.DescribeContributorInsightsInput) (r *request.Request, o *dynamodb.DescribeContributorInsightsOutput) {
+// 	d.unImpl()
+// 	return
+// }
 
 func (d *Dax) DescribeEndpoints(*dynamodb.DescribeEndpointsInput) (*dynamodb.DescribeEndpointsOutput, error) {
 	return nil, d.unImpl()
@@ -513,18 +513,18 @@ func (d *Dax) DescribeTableRequest(*dynamodb.DescribeTableInput) (r *request.Req
 	return
 }
 
-func (d *Dax) DescribeTableReplicaAutoScaling(*dynamodb.DescribeTableReplicaAutoScalingInput) (*dynamodb.DescribeTableReplicaAutoScalingOutput, error) {
-	return nil, d.unImpl()
-}
+// func (d *Dax) DescribeTableReplicaAutoScaling(*dynamodb.DescribeTableReplicaAutoScalingInput) (*dynamodb.DescribeTableReplicaAutoScalingOutput, error) {
+// 	return nil, d.unImpl()
+// }
 
-func (d *Dax) DescribeTableReplicaAutoScalingWithContext(aws.Context, *dynamodb.DescribeTableReplicaAutoScalingInput, ...request.Option) (*dynamodb.DescribeTableReplicaAutoScalingOutput, error) {
-	return nil, d.unImpl()
-}
+// func (d *Dax) DescribeTableReplicaAutoScalingWithContext(aws.Context, *dynamodb.DescribeTableReplicaAutoScalingInput, ...request.Option) (*dynamodb.DescribeTableReplicaAutoScalingOutput, error) {
+// 	return nil, d.unImpl()
+// }
 
-func (d *Dax) DescribeTableReplicaAutoScalingRequest(*dynamodb.DescribeTableReplicaAutoScalingInput) (r *request.Request, o *dynamodb.DescribeTableReplicaAutoScalingOutput) {
-	d.unImpl()
-	return
-}
+// func (d *Dax) DescribeTableReplicaAutoScalingRequest(*dynamodb.DescribeTableReplicaAutoScalingInput) (r *request.Request, o *dynamodb.DescribeTableReplicaAutoScalingOutput) {
+// 	d.unImpl()
+// 	return
+// }
 
 func (d *Dax) DescribeTimeToLive(*dynamodb.DescribeTimeToLiveInput) (*dynamodb.DescribeTimeToLiveOutput, error) {
 	return nil, d.unImpl()
@@ -552,26 +552,26 @@ func (d *Dax) ListBackupsRequest(*dynamodb.ListBackupsInput) (r *request.Request
 	return
 }
 
-func (d *Dax) ListContributorInsights(*dynamodb.ListContributorInsightsInput) (*dynamodb.ListContributorInsightsOutput, error) {
-	return nil, d.unImpl()
-}
+// func (d *Dax) ListContributorInsights(*dynamodb.ListContributorInsightsInput) (*dynamodb.ListContributorInsightsOutput, error) {
+// 	return nil, d.unImpl()
+// }
 
-func (d *Dax) ListContributorInsightsWithContext(aws.Context, *dynamodb.ListContributorInsightsInput, ...request.Option) (*dynamodb.ListContributorInsightsOutput, error) {
-	return nil, d.unImpl()
-}
+// func (d *Dax) ListContributorInsightsWithContext(aws.Context, *dynamodb.ListContributorInsightsInput, ...request.Option) (*dynamodb.ListContributorInsightsOutput, error) {
+// 	return nil, d.unImpl()
+// }
 
-func (d *Dax) ListContributorInsightsRequest(*dynamodb.ListContributorInsightsInput) (r *request.Request, o *dynamodb.ListContributorInsightsOutput) {
-	d.unImpl()
-	return
-}
+// func (d *Dax) ListContributorInsightsRequest(*dynamodb.ListContributorInsightsInput) (r *request.Request, o *dynamodb.ListContributorInsightsOutput) {
+// 	d.unImpl()
+// 	return
+// }
 
-func (d *Dax) ListContributorInsightsPages(*dynamodb.ListContributorInsightsInput, func(*dynamodb.ListContributorInsightsOutput, bool) bool) error {
-	return d.unImpl()
-}
+// func (d *Dax) ListContributorInsightsPages(*dynamodb.ListContributorInsightsInput, func(*dynamodb.ListContributorInsightsOutput, bool) bool) error {
+// 	return d.unImpl()
+// }
 
-func (d *Dax) ListContributorInsightsPagesWithContext(aws.Context, *dynamodb.ListContributorInsightsInput, func(*dynamodb.ListContributorInsightsOutput, bool) bool, ...request.Option) error {
-	return d.unImpl()
-}
+// func (d *Dax) ListContributorInsightsPagesWithContext(aws.Context, *dynamodb.ListContributorInsightsInput, func(*dynamodb.ListContributorInsightsOutput, bool) bool, ...request.Option) error {
+// 	return d.unImpl()
+// }
 
 func (d *Dax) ListGlobalTables(*dynamodb.ListGlobalTablesInput) (*dynamodb.ListGlobalTablesOutput, error) {
 	return nil, d.unImpl()
@@ -685,18 +685,18 @@ func (d *Dax) UpdateContinuousBackupsRequest(*dynamodb.UpdateContinuousBackupsIn
 	return
 }
 
-func (d *Dax) UpdateContributorInsights(*dynamodb.UpdateContributorInsightsInput) (*dynamodb.UpdateContributorInsightsOutput, error) {
-	return nil, d.unImpl()
-}
+// func (d *Dax) UpdateContributorInsights(*dynamodb.UpdateContributorInsightsInput) (*dynamodb.UpdateContributorInsightsOutput, error) {
+// 	return nil, d.unImpl()
+// }
 
-func (d *Dax) UpdateContributorInsightsWithContext(aws.Context, *dynamodb.UpdateContributorInsightsInput, ...request.Option) (*dynamodb.UpdateContributorInsightsOutput, error) {
-	return nil, d.unImpl()
-}
+// func (d *Dax) UpdateContributorInsightsWithContext(aws.Context, *dynamodb.UpdateContributorInsightsInput, ...request.Option) (*dynamodb.UpdateContributorInsightsOutput, error) {
+// 	return nil, d.unImpl()
+// }
 
-func (d *Dax) UpdateContributorInsightsRequest(*dynamodb.UpdateContributorInsightsInput) (r *request.Request, o *dynamodb.UpdateContributorInsightsOutput) {
-	d.unImpl()
-	return
-}
+// func (d *Dax) UpdateContributorInsightsRequest(*dynamodb.UpdateContributorInsightsInput) (r *request.Request, o *dynamodb.UpdateContributorInsightsOutput) {
+// 	d.unImpl()
+// 	return
+// }
 
 func (d *Dax) UpdateGlobalTable(*dynamodb.UpdateGlobalTableInput) (*dynamodb.UpdateGlobalTableOutput, error) {
 	return nil, d.unImpl()
@@ -737,18 +737,18 @@ func (d *Dax) UpdateTableRequest(*dynamodb.UpdateTableInput) (r *request.Request
 	return
 }
 
-func (d *Dax) UpdateTableReplicaAutoScaling(*dynamodb.UpdateTableReplicaAutoScalingInput) (*dynamodb.UpdateTableReplicaAutoScalingOutput, error) {
-	return nil, d.unImpl()
-}
+// func (d *Dax) UpdateTableReplicaAutoScaling(*dynamodb.UpdateTableReplicaAutoScalingInput) (*dynamodb.UpdateTableReplicaAutoScalingOutput, error) {
+// 	return nil, d.unImpl()
+// }
 
-func (d *Dax) UpdateTableReplicaAutoScalingWithContext(aws.Context, *dynamodb.UpdateTableReplicaAutoScalingInput, ...request.Option) (*dynamodb.UpdateTableReplicaAutoScalingOutput, error) {
-	return nil, d.unImpl()
-}
+// func (d *Dax) UpdateTableReplicaAutoScalingWithContext(aws.Context, *dynamodb.UpdateTableReplicaAutoScalingInput, ...request.Option) (*dynamodb.UpdateTableReplicaAutoScalingOutput, error) {
+// 	return nil, d.unImpl()
+// }
 
-func (d *Dax) UpdateTableReplicaAutoScalingRequest(*dynamodb.UpdateTableReplicaAutoScalingInput) (r *request.Request, o *dynamodb.UpdateTableReplicaAutoScalingOutput) {
-	d.unImpl()
-	return
-}
+// func (d *Dax) UpdateTableReplicaAutoScalingRequest(*dynamodb.UpdateTableReplicaAutoScalingInput) (r *request.Request, o *dynamodb.UpdateTableReplicaAutoScalingOutput) {
+// 	d.unImpl()
+// 	return
+// }
 
 func (d *Dax) UpdateTimeToLive(*dynamodb.UpdateTimeToLiveInput) (*dynamodb.UpdateTimeToLiveOutput, error) {
 	return nil, d.unImpl()

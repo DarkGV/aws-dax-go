@@ -17,12 +17,13 @@ package dax
 
 import (
 	"context"
-	"github.com/aws/aws-dax-go/dax/internal/client"
+	"time"
+
+	"./internal/client"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
-	"time"
 )
 
 // Dax makes requests to the Amazon DAX API, which conforms to the DynamoDB API.

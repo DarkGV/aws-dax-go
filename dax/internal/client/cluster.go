@@ -101,6 +101,8 @@ type ClusterDaxClient struct {
 }
 
 func New(config Config) (*ClusterDaxClient, error) {
+	// This function will be called when DAX is meant to be created.
+	// The cluster config must be an empty value
 	cluster, err := newCluster(config)
 	if err != nil {
 		return nil, err
