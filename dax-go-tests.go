@@ -24,19 +24,26 @@ import (
 func executeGetItemOperation(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.GetItemOutput, error) {
 	// Now execute the GetItem request
 	// Run it over the TestTable, pk Nome and sk Idade
-	result, err := daxClient.GetItem(
+
+	return daxClient.GetItem(
 		&dynamodb.GetItemInput{
 			TableName: aws.String("TestTable"),
 			Key: map[string]*dynamodb.AttributeValue{
 				"PartitionKey": {S: aws.String("Nome")},
 				"SortKey":      {S: aws.String("Idade")},
 			}})
-
-	return result, err
 }
 
-func executePutItem(daxClient dynamodbiface.DynamoDBAPI) (string, error) {
-	return "", errors.New("Unimpl")
+func executePutItemRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.PutItemOutput, error) {
+	return daxClient.PutItem(
+		&dynamodb.PutItemInput{
+			TableName: aws.String("TestTable"),
+			Item: map[string]*dynamodb.AttributeValue{
+				"PartitionKey": {S: aws.String("Nome")},
+				"SortKey":      {S: aws.String("Idade")},
+				"ItemData":     {S: aws.String("YES YES")},
+			},
+		})
 }
 
 func executeDeleteItem(daxClient dynamodbiface.DynamoDBAPI) (string, error) {
@@ -57,13 +64,18 @@ func main() {
 	*		Credentials: default,
 	*   }
 	 */
+
 	cfg := dax.DefaultConfig()
 	cfg.HostPorts = []string{"localhost:8001"}
 	cfg.Region = "us-central-1"
 	client, _ := dax.New(cfg) // Create a new cluster
 
-	_, err := executeGetItemOperation(client)
-	if err != nil {
+	if _, err := executeGetItemOperation(client); err != nil {
 		fmt.Println(err)
 	}
+
+	if _, err := executePutItemRequest(client); err != nil {
+		fmt.Println(err)
+	}
+
 }
