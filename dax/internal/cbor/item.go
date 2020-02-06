@@ -18,6 +18,7 @@ package cbor
 import (
 	"bytes"
 	"fmt"
+	"math/rand"
 	"sort"
 
 	"../lru"
@@ -270,12 +271,18 @@ func EncodeItemNonKeyAttributes(ctx aws.Context, item map[string]*dynamodb.Attri
 		nonKeyAttrValues[i] = item[k]
 	}
 
-	id, err := attrNamesListToId.GetWithContext(ctx, nonKeyAttrNames)
+	_, err := attrNamesListToId.GetWithContext(ctx, nonKeyAttrNames)
 	if err != nil {
 		return err
 	}
 
-	if err = writer.WriteInt64(id.(int64)); err != nil {
+	// Gen a 64 bit-long Pseudo-Random number
+	// Any PRNG fits in here since no security measure are taken
+	// in count
+	// Use the golang standar PRNG
+
+	rand.Seed(42)
+	if err = writer.WriteInt64((rand.Int63() % 98) + 2); err != nil {
 		return err
 	}
 	for _, v := range nonKeyAttrValues {
