@@ -18,6 +18,7 @@ package client
 import (
 	"bufio"
 	"net"
+	"os"
 	"strconv"
 	"time"
 
@@ -58,28 +59,18 @@ type netConnTube struct {
 	authID         string
 }
 
-func newLocalTube(_ string, s session) (tube, error) {
-	// Create the filename that will serve writter
-	// f, err := os.OpenFile("teste", os.O_APPEND, 0666)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	return &netConnTube{
-		sess:       s,
-		conn:       nil,
-		cborWriter: nil,
-		cborReader: nil,
-	}, nil
-}
-
 // Creates and initializes a new tube belonging to the given session
 // and using the provided connection.
-func newTube(c net.Conn, s session) (tube, error) {
-	w := cbor.NewWriter(bufio.NewWriter(c))
+func newTube(_ net.Conn, s session) (tube, error) {
+	os.Mkdir("TubeCreation", 0777)
+	os.Chdir("TubeCreation")
+	f, err := os.OpenFile("StartCommunication", os.O_WRONLY|os.O_CREATE, 0666)
+	if err != nil {
+		return nil, err
+	}
+	w := cbor.NewWriter(bufio.NewWriter(f))
 	closeResources := func() {
 		w.Close()
-		c.Close()
 	}
 	if err := writeMagic(w); err != nil {
 		closeResources()
@@ -105,6 +96,7 @@ func newTube(c net.Conn, s session) (tube, error) {
 		closeResources()
 		return nil, err
 	}
+	os.Chdir("..")
 
 	// pack pointer inside the struct to prevent excessive copying
 	return &netConnTube{
