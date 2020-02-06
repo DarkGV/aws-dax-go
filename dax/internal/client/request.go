@@ -226,7 +226,7 @@ func encodePutItemInput(ctx aws.Context, input *dynamodb.PutItemInput, keySchema
 		return err
 	}
 	table := *input.TableName
-	keys, err := getKeySchema(ctx, keySchema, table)
+	_, err = getKeySchema(ctx, keySchema, table)
 	if err != nil {
 		return err
 	}
@@ -238,10 +238,22 @@ func encodePutItemInput(ctx aws.Context, input *dynamodb.PutItemInput, keySchema
 		return err
 	}
 
-	if err := cbor.EncodeItemKey(input.Item, keys, writer); err != nil {
+	tableSchema := []dynamodb.AttributeDefinition{
+		dynamodb.AttributeDefinition{
+			AttributeName: aws.String("PartitionKey"),
+			AttributeType: aws.String("S"),
+		},
+		dynamodb.AttributeDefinition{
+			AttributeName: aws.String("SortKey"),
+			AttributeType: aws.String("S"),
+		},
+	}
+
+	if err := cbor.EncodeItemKey(input.Item, tableSchema, writer); err != nil {
 		return err
 	}
-	if err := encodeNonKeyAttributes(ctx, input.Item, keys, attrNamesListToId, writer); err != nil {
+	// The AttributesListID must be random!
+	if err := encodeNonKeyAttributes(ctx, input.Item, tableSchema, attrNamesListToId, writer); err != nil {
 		return err
 	}
 
