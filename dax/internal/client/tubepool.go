@@ -305,11 +305,11 @@ func (p *tubePool) reapIdleConnections() {
 
 // Allocates a new tube by establishing a new connection and performing initialization.
 func (p *tubePool) alloc(session int64) (tube, error) {
-	conn, err := p.connectFn(network, p.address)
-	if err != nil {
-		return nil, err
-	}
-	t, err := newTube(conn, session)
+	//conn, err := p.connectFn(network, p.address)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	t, err := newLocalTube("teste", session)
 	if err != nil {
 		return nil, err
 	}

@@ -325,7 +325,7 @@ func encodeGetItemInput(ctx aws.Context, input *dynamodb.GetItemInput, keySchema
 		return err
 	}
 	table := *input.TableName
-	keys, err := getKeySchema(ctx, keySchema, table)
+	_, err = getKeySchema(ctx, keySchema, table)
 	if err != nil {
 		return err
 	}
@@ -336,7 +336,25 @@ func encodeGetItemInput(ctx aws.Context, input *dynamodb.GetItemInput, keySchema
 	if err := writer.WriteBytes([]byte(table)); err != nil {
 		return err
 	}
-	if err := cbor.EncodeItemKey(input.Key, keys, writer); err != nil {
+
+	// This is for tests purposes, thus we are testing against the same table ALWAYS
+	// This is the first version of this test, however some changes will be done
+	// To get these tests more general, since the encode key needs the table schema
+	// In order to properly encode the keys
+
+	// Create an Attribute Definition with the table's schema
+	tableSchema := []dynamodb.AttributeDefinition{
+		dynamodb.AttributeDefinition{
+			AttributeName: aws.String("PartitionKey"),
+			AttributeType: aws.String("S"),
+		},
+		dynamodb.AttributeDefinition{
+			AttributeName: aws.String("SortKey"),
+			AttributeType: aws.String("S"),
+		},
+	}
+
+	if err := cbor.EncodeItemKey(input.Key, tableSchema, writer); err != nil {
 		return err
 	}
 	return encodeItemOperationOptionalParams(nil, input.ReturnConsumedCapacity, nil, input.ConsistentRead,

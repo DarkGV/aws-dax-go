@@ -58,6 +58,21 @@ type netConnTube struct {
 	authID         string
 }
 
+func newLocalTube(_ string, s session) (tube, error) {
+	// Create the filename that will serve writter
+	// f, err := os.OpenFile("teste", os.O_APPEND, 0666)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	return &netConnTube{
+		sess:       s,
+		conn:       nil,
+		cborWriter: nil,
+		cborReader: nil,
+	}, nil
+}
+
 // Creates and initializes a new tube belonging to the given session
 // and using the provided connection.
 func newTube(c net.Conn, s session) (tube, error) {
@@ -94,8 +109,8 @@ func newTube(c net.Conn, s session) (tube, error) {
 	// pack pointer inside the struct to prevent excessive copying
 	return &netConnTube{
 		sess:       s,
-		conn:       c,
-		cborReader: cbor.NewReader(bufio.NewReader(c)),
+		conn:       nil,
+		cborReader: nil,
 		cborWriter: w,
 	}, nil
 
@@ -121,7 +136,10 @@ func (t *netConnTube) CompareAndSwapAuthID(id string) bool {
 
 // Sets the deadline on the underlying net.Conn object
 func (t *netConnTube) SetDeadline(time time.Time) error {
-	return t.conn.SetDeadline(time)
+	if t.conn != nil {
+		return t.conn.SetDeadline(time)
+	}
+	return nil
 }
 
 func (t *netConnTube) Session() session {
@@ -147,7 +165,7 @@ func (t *netConnTube) CborWriter() *cbor.Writer {
 func (t *netConnTube) Close() error {
 	t.cborWriter.Close()
 	t.cborReader.Close()
-	return t.conn.Close()
+	return nil
 }
 
 func writeMagic(w *cbor.Writer) error {

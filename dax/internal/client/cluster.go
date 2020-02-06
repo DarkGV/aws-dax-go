@@ -107,12 +107,13 @@ func New(config Config) (*ClusterDaxClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = cluster.start()
+	err = cluster.start() // START IS DEFINED HERE!!! FINALLY
 	if err != nil {
 		return nil, err
 	}
 	client := &ClusterDaxClient{config: config, cluster: cluster}
 	client.handlers = client.buildHandlers()
+
 	return client, nil
 }
 
@@ -123,9 +124,11 @@ func (cc *ClusterDaxClient) Close() error {
 func (cc *ClusterDaxClient) endpoints(opt RequestOptions) ([]serviceEndpoint, error) {
 	var out []serviceEndpoint
 	var err error
-	action := func(client DaxAPI, o RequestOptions) error {
+	action := func(_ DaxAPI, o RequestOptions) error {
+		client, _ := NewSingleClient("", "", &credentials.Credentials{})
+		fmt.Println(client)
 		out, err = client.endpoints(o)
-		return err
+		return nil
 	}
 	if err = cc.retry(opEndpoints, action, opt); err != nil {
 		return nil, err
@@ -207,8 +210,12 @@ func (cc *ClusterDaxClient) TransactGetItemsWithOptions(input *dynamodb.Transact
 
 func (cc *ClusterDaxClient) GetItemWithOptions(input *dynamodb.GetItemInput, output *dynamodb.GetItemOutput, opt RequestOptions) (*dynamodb.GetItemOutput, error) {
 	var err error
-	action := func(client DaxAPI, o RequestOptions) error {
-		output, err = client.GetItemWithOptions(input, output, o)
+	action := func(_ DaxAPI, o RequestOptions) error {
+		var cred credentials.Credentials
+		c, _ := newSingleClientWithOptions("localhost", "eu-central-1", &cred, 1)
+		c.pool.alloc(int64(1))
+
+		output, err = c.GetItemWithOptions(input, output, o)
 		return err
 	}
 	if err = cc.retry(OpGetItem, action, opt); err != nil {
@@ -319,16 +326,16 @@ func (cc *ClusterDaxClient) retry(op string, action func(client DaxAPI, o Reques
 	var client DaxAPI
 	// Start from 0 to accomodate for the initial request
 	for i := 0; i <= attempts; i++ {
-		if i > 0 && opt.Logger != nil && opt.LogLevel.Matches(aws.LogDebugWithRequestRetries) {
-			opt.Logger.Log(fmt.Sprintf("DEBUG: Retrying Request %s/%s, attempt %d", service, op, i))
-		}
-		client, err = cc.cluster.client(client)
-		if err != nil {
-			if req, ok = cc.shouldRetry(opt, err); !ok {
-				return err
-			}
-		}
-
+		// if i > 0 && opt.Logger != nil && opt.LogLevel.Matches(aws.LogDebugWithRequestRetries) {
+		// 	opt.Logger.Log(fmt.Sprintf("DEBUG: Retrying Request %s/%s, attempt %d", service, op, i))
+		// }
+		// client, err = cc.cluster.client(client)
+		// if err != nil {
+		// 	if req, ok = cc.shouldRetry(opt, err); !ok {
+		// 		return err
+		// 	}
+		// }
+		err = nil
 		if err == nil {
 			if err = action(client, opt); err == nil {
 				return nil
@@ -388,10 +395,14 @@ type cluster struct {
 	clientBuilder clientBuilder
 }
 
+// Create a newCluster to the localhost
 func newCluster(cfg Config) (*cluster, error) {
+	// The validate function will validate if host, port, region, credentials
+	// are set
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
+	// [address]:[port]
 	seeds, err := parseHostPorts(cfg.HostPorts)
 	if err != nil {
 		return nil, err
@@ -457,7 +468,7 @@ func (c *cluster) client(prev DaxAPI) (DaxAPI, error) {
 	defer c.lock.RUnlock()
 
 	n := len(c.routes)
-	if n == 0 {
+	if n == 0 { // There are no routes, thus the request is entering here and panicking
 		return nil, awserr.New(ErrCodeServiceUnavailable, "No routes found", c.lastRefreshError())
 	}
 	if n == 1 {
@@ -498,14 +509,15 @@ func (c *cluster) refresh(force bool) error {
 }
 
 func (c *cluster) refreshNow() error {
-	cfg, err := c.pullEndpoints()
-	if err != nil {
-		return err
-	}
-	if !c.hasChanged(cfg) {
-		return nil
-	}
-	return c.update(cfg)
+	// cfg, err := c.pullEndpoints()
+	// if err != nil {
+	// 	return err
+	// }
+	// if !c.hasChanged(cfg) {
+	// 	return nil
+	// }
+	// return c.update(cfg)
+	return nil
 }
 
 func (c *cluster) update(config []serviceEndpoint) error {
@@ -550,9 +562,9 @@ func (c *cluster) update(config []serviceEndpoint) error {
 	c.lock.Unlock()
 
 	go func() {
-		for _, client := range toClose {
-			c.closeClient(client)
-		}
+		// for _, client := range toClose {
+		// 	c.closeClient(client)
+		// }
 	}()
 	return nil
 }
@@ -570,11 +582,11 @@ func (c *cluster) hasChanged(cfg []serviceEndpoint) bool {
 }
 
 func (c *cluster) pullEndpoints() ([]serviceEndpoint, error) {
-	var lastErr error // TODO chain errors?
+	//var lastErr error // TODO chain errors?
 	for _, s := range c.seeds {
 		ips, err := net.LookupIP(s.host)
 		if err != nil {
-			lastErr = err
+			_ = err
 			continue
 		}
 
@@ -587,17 +599,18 @@ func (c *cluster) pullEndpoints() ([]serviceEndpoint, error) {
 		}
 
 		for _, ip := range ips {
-			endpoints, err := c.pullEndpointsFrom(ip, s.port)
-			if err != nil {
-				lastErr = err
-				continue
-			}
-			if len(endpoints) > 0 {
-				return endpoints, nil
-			}
+			_, _ = c.pullEndpointsFrom(ip, s.port)
+			return nil, nil
+			// if err != nil {
+			// 	lastErr = err
+			// 	continue
+			// }
+			// if len(endpoints) > 0 {
+			// 	return endpoints, nil
+			// }
 		}
 	}
-	return nil, lastErr
+	return nil, nil
 }
 
 func (c *cluster) pullEndpointsFrom(ip net.IP, port int) ([]serviceEndpoint, error) {

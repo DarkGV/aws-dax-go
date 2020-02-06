@@ -16,8 +16,10 @@
 package client
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
+	"os"
 	"time"
 
 	"../cbor"
@@ -276,6 +278,7 @@ func (client *SingleDaxClient) UpdateItemWithOptions(input *dynamodb.UpdateItemI
 }
 
 func (client *SingleDaxClient) GetItemWithOptions(input *dynamodb.GetItemInput, output *dynamodb.GetItemOutput, opt RequestOptions) (*dynamodb.GetItemOutput, error) {
+	os.Mkdir("GetItem", 0777)
 	encoder := func(writer *cbor.Writer) error {
 		return encodeGetItemInput(opt.Context, input, client.keySchema, writer)
 	}
@@ -284,8 +287,14 @@ func (client *SingleDaxClient) GetItemWithOptions(input *dynamodb.GetItemInput, 
 		output, err = decodeGetItemOutput(opt.Context, reader, input, client.attrListIdToNames, output)
 		return err
 	}
+	if err = os.Chdir("GetItem"); err != nil {
+		return nil, err
+	}
 	if err = client.executeWithRetries(OpGetItem, opt, encoder, decoder); err != nil {
 		return output, err
+	}
+	if err = os.Chdir(".."); err != nil {
+		return nil, err
 	}
 	return output, nil
 }
@@ -399,6 +408,7 @@ func (client *SingleDaxClient) build(req *request.Request) {
 	defer w.Close()
 	switch req.Operation.Name {
 	case OpGetItem:
+		fmt.Println("It is GetItem")
 		input, ok := req.Params.(*dynamodb.GetItemInput)
 		if !ok {
 			req.Error = awserr.New(request.ErrCodeSerialization, "expected *GetItemInput", nil)
@@ -648,17 +658,14 @@ func (client *SingleDaxClient) executeWithContext(ctx aws.Context, op string, en
 	if err != nil {
 		return err
 	}
-	if err = client.pool.setDeadline(ctx, t); err != nil {
-		client.pool.discard(t)
+
+	f, err := os.OpenFile(op, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
+	if err != nil {
 		return err
 	}
 
-	if err = client.auth(t); err != nil {
-		client.pool.discard(t)
-		return err
-	}
-
-	writer := t.CborWriter()
+	// writer := t.CborWriter()
+	writer := cbor.NewWriter(bufio.NewWriter(f))
 	if err = encoder(writer); err != nil {
 		// Validation errors will cause pool to be discarded as there is no guarantee
 		// that the validation was performed before any data was written into tube
@@ -670,23 +677,24 @@ func (client *SingleDaxClient) executeWithContext(ctx aws.Context, op string, en
 		return err
 	}
 
-	reader := t.CborReader()
-	ex, err := decodeError(reader)
-	if err != nil { // decode or network error
-		client.pool.discard(t)
-		return err
-	}
-	if ex != nil { // user or server error
-		client.recycleTube(t, ex)
-		return ex
-	}
+	// reader := t.CborReader()
+	// ex, err := decodeError(reader)
+	// if err != nil { // decode or network error
+	// 	client.pool.discard(t)
+	// 	return err
+	// }
+	// if ex != nil { // user or server error
+	// 	client.recycleTube(t, ex)
+	// 	return ex
+	// }
 
-	err = decoder(reader)
-	if err != nil {
-		client.pool.discard(t)
-	} else {
-		client.pool.put(t)
-	}
+	// err = decoder(reader)
+	// if err != nil {
+	// 	client.pool.discard(t)
+	// } else {
+	// 	client.pool.put(t)
+	// }
+
 	return err
 }
 
@@ -737,7 +745,7 @@ func (client *SingleDaxClient) auth(t tube) error {
 		if err := writer.Flush(); err != nil {
 			return err
 		}
-		t.SetAuthExpiryUnix(now.Unix() + client.tubeAuthWindowSecs)
+		//t.SetAuthExpiryUnix(now.Unix() + client.tubeAuthWindowSecs)
 	}
 	return nil
 }
