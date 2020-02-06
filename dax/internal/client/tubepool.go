@@ -307,9 +307,8 @@ func (p *tubePool) reapIdleConnections() {
 func (p *tubePool) alloc(session int64) (tube, error) {
 	//conn, err := p.connectFn(network, p.address)
 	// if err != nil {
-	// 	return nil, err
 	// }
-	t, err := newLocalTube("teste", session)
+	t, err := newTube(nil, session)
 	if err != nil {
 		return nil, err
 	}
