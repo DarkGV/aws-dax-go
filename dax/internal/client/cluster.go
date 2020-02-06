@@ -210,12 +210,8 @@ func (cc *ClusterDaxClient) TransactGetItemsWithOptions(input *dynamodb.Transact
 
 func (cc *ClusterDaxClient) GetItemWithOptions(input *dynamodb.GetItemInput, output *dynamodb.GetItemOutput, opt RequestOptions) (*dynamodb.GetItemOutput, error) {
 	var err error
-	action := func(_ DaxAPI, o RequestOptions) error {
-		var cred credentials.Credentials
-		c, _ := newSingleClientWithOptions("localhost", "eu-central-1", &cred, 1)
-		c.pool.alloc(int64(1))
-
-		output, err = c.GetItemWithOptions(input, output, o)
+	action := func(c DaxAPI, o RequestOptions) error {
+		output, err = c.GetItemWithOptions(input, output, o) // single.go, line 287
 		return err
 	}
 	if err = cc.retry(OpGetItem, action, opt); err != nil {
@@ -323,7 +319,7 @@ func (cc *ClusterDaxClient) retry(op string, action func(client DaxAPI, o Reques
 	var req request.Request
 	var ok bool
 	var err error
-	var client DaxAPI
+	var _ DaxAPI
 	// Start from 0 to accomodate for the initial request
 	for i := 0; i <= attempts; i++ {
 		// if i > 0 && opt.Logger != nil && opt.LogLevel.Matches(aws.LogDebugWithRequestRetries) {
@@ -335,9 +331,11 @@ func (cc *ClusterDaxClient) retry(op string, action func(client DaxAPI, o Reques
 		// 		return err
 		// 	}
 		// }
+		var cred credentials.Credentials
+		c, _ := newSingleClientWithOptions("localhost", "eu-central-1", &cred, 1)
 		err = nil
 		if err == nil {
-			if err = action(client, opt); err == nil {
+			if err = action(c, opt); err == nil {
 				return nil
 			} else if req, ok = cc.shouldRetry(opt, err); !ok {
 				return err
