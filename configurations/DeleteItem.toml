@@ -1,0 +1,7 @@
+[[Operation]]
+[PartitionKey]
+field = "PartitionKey"
+type = "S"
+[SortKey]
+field = "SortKey"
+type = "S"
