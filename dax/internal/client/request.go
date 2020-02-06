@@ -24,12 +24,29 @@ import (
 	"../cbor"
 	"../lru"
 	"../parser"
+	"github.com/BurntSushi/toml"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/gofrs/uuid"
 )
+
+// Structs for the TOML file
+type operation struct {
+	PartitionKey partitionkey
+	SortKey      sortkey
+}
+
+type partitionkey struct {
+	Field string
+	Type  string
+}
+
+type sortkey struct {
+	Field string
+	Type  string
+}
 
 const daxServiceId = 1
 
@@ -349,20 +366,23 @@ func encodeGetItemInput(ctx aws.Context, input *dynamodb.GetItemInput, keySchema
 		return err
 	}
 
-	// This is for tests purposes, thus we are testing against the same table ALWAYS
-	// This is the first version of this test, however some changes will be done
-	// To get these tests more general, since the encode key needs the table schema
-	// In order to properly encode the keys
+	// Read the TOML file from the configurations folder
+	// There is a request specific configuration file
 
-	// Create an Attribute Definition with the table's schema
+	var getitemConfiguration operation // This structure will contain the configurations for this request
+	// Parse the file
+	if _, err := toml.DecodeFile("../configurations/GetItem.toml", &getitemConfiguration); err != nil {
+		return err
+	}
+
 	tableSchema := []dynamodb.AttributeDefinition{
 		dynamodb.AttributeDefinition{
-			AttributeName: aws.String("PartitionKey"),
-			AttributeType: aws.String("S"),
+			AttributeName: aws.String(getitemConfiguration.PartitionKey.Field),
+			AttributeType: aws.String(getitemConfiguration.PartitionKey.Type),
 		},
 		dynamodb.AttributeDefinition{
-			AttributeName: aws.String("SortKey"),
-			AttributeType: aws.String("S"),
+			AttributeName: aws.String(getitemConfiguration.SortKey.Field),
+			AttributeType: aws.String(getitemConfiguration.SortKey.Type),
 		},
 	}
 
