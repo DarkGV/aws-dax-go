@@ -233,6 +233,7 @@ func (client *SingleDaxClient) defineKeySchema(ctx aws.Context, table string) ([
 }
 
 func (client *SingleDaxClient) PutItemWithOptions(input *dynamodb.PutItemInput, output *dynamodb.PutItemOutput, opt RequestOptions) (*dynamodb.PutItemOutput, error) {
+	os.Mkdir("PutItem", 0777)
 	encoder := func(writer *cbor.Writer) error {
 		return encodePutItemInput(opt.Context, input, client.keySchema, client.attrNamesListToId, writer)
 	}
@@ -241,8 +242,15 @@ func (client *SingleDaxClient) PutItemWithOptions(input *dynamodb.PutItemInput, 
 		output, err = decodePutItemOutput(opt.Context, reader, input, client.keySchema, client.attrListIdToNames, output)
 		return err
 	}
+	// Write all the operations in the op folder
+	if err = os.Chdir("PutItem"); err != nil {
+		return nil, err
+	}
 	if err = client.executeWithRetries(OpPutItem, opt, encoder, decoder); err != nil {
 		return output, err
+	}
+	if err = os.Chdir(".."); err != nil {
+		return nil, err
 	}
 	return output, nil
 }
