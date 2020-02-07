@@ -6,7 +6,6 @@ package main
  */
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -21,7 +20,7 @@ import (
 *  The first tests to be done are: GetItem, PutItem, DeleteItem and UpdateItem
  */
 
-func executeGetItemOperation(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.GetItemOutput, error) {
+func executeGetItemRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.GetItemOutput, error) {
 	// Now execute the GetItem request
 	// Run it over the TestTable, pk Nome and sk Idade
 
@@ -46,12 +45,26 @@ func executePutItemRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.PutIt
 		})
 }
 
-func executeDeleteItem(daxClient dynamodbiface.DynamoDBAPI) (string, error) {
-	return "", errors.New("Unimpl")
+func executeDeleteItemRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.DeleteItemOutput, error) {
+	return daxClient.DeleteItem(
+		&dynamodb.DeleteItemInput{
+			TableName: aws.String("TestTable"),
+			Key: map[string]*dynamodb.AttributeValue{
+				"PartitionKey": {S: aws.String("Nome")},
+				"SortKey":      {S: aws.String("Idade")},
+			},
+		})
 }
 
-func executeUpdateItem(daxClient dynamodbiface.DynamoDBAPI) (string, error) {
-	return "", errors.New("Unimpl")
+func executeUpdateItemRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.UpdateItemOutput, error) {
+	return daxClient.UpdateItem(
+		&dynamodb.UpdateItemInput{
+			TableName: aws.String("TestTable"),
+			Key: map[string]*dynamodb.AttributeValue{
+				"PartitionKey": {S: aws.String("Nome")},
+				"SortKey":      {S: aws.String("Idade")},
+			},
+		})
 }
 
 func main() {
@@ -70,11 +83,19 @@ func main() {
 	cfg.Region = "us-central-1"
 	client, _ := dax.New(cfg) // Create a new cluster
 
-	if _, err := executeGetItemOperation(client); err != nil {
+	if _, err := executeGetItemRequest(client); err != nil {
 		fmt.Println(err)
 	}
 
 	if _, err := executePutItemRequest(client); err != nil {
+		fmt.Println(err)
+	}
+
+	if _, err := executeUpdateItemRequest(client); err != nil {
+		fmt.Println(err)
+	}
+
+	if _, err := executeDeleteItemRequest(client); err != nil {
 		fmt.Println(err)
 	}
 
