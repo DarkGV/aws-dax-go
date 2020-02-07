@@ -92,7 +92,7 @@ func executeQueryRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.QueryOu
 }
 
 func executeScanRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.ScanOutput, error) {
-	return nil, nil
+	return daxClient.Scan(nil)
 }
 
 func main() {
@@ -124,6 +124,10 @@ func main() {
 	}
 
 	if _, err := executeDeleteItemRequest(client); err != nil {
+		fmt.Println(err)
+	}
+
+	if _, err := executeScanRequest(client); err != nil {
 		fmt.Println(err)
 	}
 

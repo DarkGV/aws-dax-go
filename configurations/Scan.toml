@@ -1,0 +1,11 @@
+TableSchema = [
+    {AttributeName = "PartitionKey", AttributeType = "S"}
+]
+
+[ItemInput]
+    TableName = "TestTable"
+    Limit = 100
+    ProjectionExpression = "#PK, #val"
+    [ItemInput.ExpressionAttributeNames]
+        "#PK" = "PartitionKey"
+        "#val" = "Value"

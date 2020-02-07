@@ -391,8 +391,21 @@ func encodeGetItemInput(ctx aws.Context, input *dynamodb.GetItemInput, keySchema
 }
 
 func encodeScanInput(ctx aws.Context, input *dynamodb.ScanInput, keySchema *lru.Lru, writer *cbor.Writer) error {
+	type ScanConfiguration struct {
+		TableSchema []dynamodb.AttributeDefinition
+		ItemInput   *dynamodb.ScanInput
+	}
+
+	var config ScanConfiguration
+	//	var keys []dynamodb.AttributeDefinition
+
 	if input == nil {
-		return awserr.New(request.ParamRequiredErrCode, fmt.Sprintf("input cannot be nil"), nil)
+		// Input is nil, get Configuration from TOML file
+		if _, err := toml.DecodeFile("../configurations/Scan.toml", &config); err != nil {
+			return err
+		}
+		input = config.ItemInput
+		//keys = config.TableSchema
 	}
 	var err error
 	if err = input.Validate(); err != nil {
