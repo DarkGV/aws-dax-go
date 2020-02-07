@@ -256,6 +256,7 @@ func (client *SingleDaxClient) PutItemWithOptions(input *dynamodb.PutItemInput, 
 }
 
 func (client *SingleDaxClient) DeleteItemWithOptions(input *dynamodb.DeleteItemInput, output *dynamodb.DeleteItemOutput, opt RequestOptions) (*dynamodb.DeleteItemOutput, error) {
+	os.Mkdir("DeleteItem", 0777)
 	encoder := func(writer *cbor.Writer) error {
 		return encodeDeleteItemInput(opt.Context, input, client.keySchema, writer)
 	}
@@ -264,13 +265,20 @@ func (client *SingleDaxClient) DeleteItemWithOptions(input *dynamodb.DeleteItemI
 		output, err = decodeDeleteItemOutput(opt.Context, reader, input, client.keySchema, client.attrListIdToNames, output)
 		return err
 	}
+	if err = os.Chdir("PutItem"); err != nil {
+		return nil, err
+	}
 	if err = client.executeWithRetries(OpDeleteItem, opt, encoder, decoder); err != nil {
 		return output, err
+	}
+	if err = os.Chdir(".."); err != nil {
+		return nil, err
 	}
 	return output, nil
 }
 
 func (client *SingleDaxClient) UpdateItemWithOptions(input *dynamodb.UpdateItemInput, output *dynamodb.UpdateItemOutput, opt RequestOptions) (*dynamodb.UpdateItemOutput, error) {
+	os.Mkdir("Updateitem", 0777)
 	encoder := func(writer *cbor.Writer) error {
 		return encodeUpdateItemInput(opt.Context, input, client.keySchema, writer)
 	}
@@ -279,8 +287,14 @@ func (client *SingleDaxClient) UpdateItemWithOptions(input *dynamodb.UpdateItemI
 		output, err = decodeUpdateItemOutput(opt.Context, reader, input, client.keySchema, client.attrListIdToNames, output)
 		return err
 	}
+	if err = os.Chdir("PutItem"); err != nil {
+		return nil, err
+	}
 	if err = client.executeWithRetries(OpUpdateItem, opt, encoder, decoder); err != nil {
 		return output, err
+	}
+	if err = os.Chdir(".."); err != nil {
+		return nil, err
 	}
 	return output, nil
 }
@@ -308,6 +322,7 @@ func (client *SingleDaxClient) GetItemWithOptions(input *dynamodb.GetItemInput, 
 }
 
 func (client *SingleDaxClient) ScanWithOptions(input *dynamodb.ScanInput, output *dynamodb.ScanOutput, opt RequestOptions) (*dynamodb.ScanOutput, error) {
+	os.Mkdir("Scan", 0777)
 	encoder := func(writer *cbor.Writer) error {
 		return encodeScanInput(opt.Context, input, client.keySchema, writer)
 	}
@@ -316,13 +331,20 @@ func (client *SingleDaxClient) ScanWithOptions(input *dynamodb.ScanInput, output
 		output, err = decodeScanOutput(opt.Context, reader, input, client.keySchema, client.attrListIdToNames, output)
 		return err
 	}
+	if err = os.Chdir("Scan"); err != nil {
+		return nil, err
+	}
 	if err = client.executeWithRetries(OpScan, opt, encoder, decoder); err != nil {
 		return output, err
+	}
+	if err = os.Chdir(".."); err != nil {
+		return nil, err
 	}
 	return output, nil
 }
 
 func (client *SingleDaxClient) QueryWithOptions(input *dynamodb.QueryInput, output *dynamodb.QueryOutput, opt RequestOptions) (*dynamodb.QueryOutput, error) {
+	os.Mkdir("Scan", 0777)
 	encoder := func(writer *cbor.Writer) error {
 		return encodeQueryInput(opt.Context, input, client.keySchema, writer)
 	}
@@ -331,13 +353,20 @@ func (client *SingleDaxClient) QueryWithOptions(input *dynamodb.QueryInput, outp
 		output, err = decodeQueryOutput(opt.Context, reader, input, client.keySchema, client.attrListIdToNames, output)
 		return err
 	}
+	if err = os.Chdir("Scan"); err != nil {
+		return nil, err
+	}
 	if err = client.executeWithRetries(OpQuery, opt, encoder, decoder); err != nil {
 		return output, err
+	}
+	if err = os.Chdir(".."); err != nil {
+		return nil, err
 	}
 	return output, nil
 }
 
 func (client *SingleDaxClient) BatchWriteItemWithOptions(input *dynamodb.BatchWriteItemInput, output *dynamodb.BatchWriteItemOutput, opt RequestOptions) (*dynamodb.BatchWriteItemOutput, error) {
+	os.Mkdir("BatchWriteItem", 0777)
 	encoder := func(writer *cbor.Writer) error {
 		return encodeBatchWriteItemInput(opt.Context, input, client.keySchema, client.attrNamesListToId, writer)
 	}
@@ -346,13 +375,20 @@ func (client *SingleDaxClient) BatchWriteItemWithOptions(input *dynamodb.BatchWr
 		output, err = decodeBatchWriteItemOutput(opt.Context, reader, client.keySchema, client.attrListIdToNames, output)
 		return err
 	}
+	if err = os.Chdir("BatchWriteItem"); err != nil {
+		return nil, err
+	}
 	if err = client.executeWithRetries(OpBatchWriteItem, opt, encoder, decoder); err != nil {
 		return output, err
+	}
+	if err = os.Chdir(".."); err != nil {
+		return nil, err
 	}
 	return output, nil
 }
 
 func (client *SingleDaxClient) BatchGetItemWithOptions(input *dynamodb.BatchGetItemInput, output *dynamodb.BatchGetItemOutput, opt RequestOptions) (*dynamodb.BatchGetItemOutput, error) {
+	os.Mkdir("BatchGetItem", 0777)
 	encoder := func(writer *cbor.Writer) error {
 		return encodeBatchGetItemInput(opt.Context, input, client.keySchema, writer)
 	}
@@ -361,13 +397,20 @@ func (client *SingleDaxClient) BatchGetItemWithOptions(input *dynamodb.BatchGetI
 		output, err = decodeBatchGetItemOutput(opt.Context, reader, input, client.keySchema, client.attrListIdToNames, output)
 		return err
 	}
+	if err = os.Chdir("BatchGetItem"); err != nil {
+		return nil, err
+	}
 	if err = client.executeWithRetries(OpBatchGetItem, opt, encoder, decoder); err != nil {
 		return output, err
+	}
+	if err = os.Chdir(".."); err != nil {
+		return nil, err
 	}
 	return output, nil
 }
 
 func (client *SingleDaxClient) TransactWriteItemsWithOptions(input *dynamodb.TransactWriteItemsInput, output *dynamodb.TransactWriteItemsOutput, opt RequestOptions) (*dynamodb.TransactWriteItemsOutput, error) {
+	os.Mkdir("TransactWriteItems", 0777)
 	encoder := func(writer *cbor.Writer) error {
 		return encodeTransactWriteItemsInput(opt.Context, input, client.keySchema, client.attrNamesListToId, writer)
 	}
@@ -376,13 +419,20 @@ func (client *SingleDaxClient) TransactWriteItemsWithOptions(input *dynamodb.Tra
 		output, err = decodeTransactWriteItemsOutput(opt.Context, reader, input, client.keySchema, client.attrListIdToNames, output)
 		return err
 	}
+	if err = os.Chdir("TransactWriteItems"); err != nil {
+		return nil, err
+	}
 	if err = client.executeWithRetries(OpBatchWriteItem, opt, encoder, decoder); err != nil {
 		return output, err
+	}
+	if err = os.Chdir(".."); err != nil {
+		return nil, err
 	}
 	return output, nil
 }
 
 func (client *SingleDaxClient) TransactGetItemsWithOptions(input *dynamodb.TransactGetItemsInput, output *dynamodb.TransactGetItemsOutput, opt RequestOptions) (*dynamodb.TransactGetItemsOutput, error) {
+	os.Mkdir("TransactGetItems", 0777)
 	encoder := func(writer *cbor.Writer) error {
 		return encodeTransactGetItemsInput(opt.Context, input, client.keySchema, writer)
 	}
@@ -391,8 +441,14 @@ func (client *SingleDaxClient) TransactGetItemsWithOptions(input *dynamodb.Trans
 		output, err = decodeTransactGetItemsOutput(opt.Context, reader, input, client.keySchema, client.attrListIdToNames, output)
 		return err
 	}
+	if err = os.Chdir("TransactGetItems"); err != nil {
+		return nil, err
+	}
 	if err = client.executeWithRetries(OpBatchWriteItem, opt, encoder, decoder); err != nil {
 		return output, err
+	}
+	if err = os.Chdir(".."); err != nil {
+		return nil, err
 	}
 	return output, nil
 }
