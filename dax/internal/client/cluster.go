@@ -124,9 +124,7 @@ func (cc *ClusterDaxClient) Close() error {
 func (cc *ClusterDaxClient) endpoints(opt RequestOptions) ([]serviceEndpoint, error) {
 	var out []serviceEndpoint
 	var err error
-	action := func(_ DaxAPI, o RequestOptions) error {
-		client, _ := NewSingleClient("", "", &credentials.Credentials{})
-		fmt.Println(client)
+	action := func(client DaxAPI, o RequestOptions) error {
 		out, err = client.endpoints(o)
 		return nil
 	}
