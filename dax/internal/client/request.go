@@ -32,22 +32,6 @@ import (
 	"github.com/gofrs/uuid"
 )
 
-// Structs for the TOML file
-type Operation struct {
-	PartitionKey PartitionKey
-	SortKey      SortKey
-}
-
-type PartitionKey struct {
-	Field string
-	Type  string
-}
-
-type SortKey struct {
-	Field string
-	Type  string
-}
-
 const daxServiceId = 1
 
 const (
@@ -161,43 +145,6 @@ const (
 
 const maxWriteBatchSize = 25
 
-func readConfigurationsFile(operationName string) ([]dynamodb.AttributeDefinition, error) {
-	// Operation is a string and must be concatenated with the file path
-	// Here, this application will be at request path
-	// For a GetItem request, this app will be at GetItem folder
-	// The configurations file is at root, thus it is needed to got one path behind from the current one
-
-	var configuration Operation
-	var tableSchema []dynamodb.AttributeDefinition
-
-	if _, err := toml.DecodeFile("../configurations/"+operationName+".toml", &configuration); err != nil {
-		// There was an error, return it to the caller
-		return tableSchema, err
-	}
-	switch configuration.SortKey {
-	case (SortKey{}):
-		tableSchema = []dynamodb.AttributeDefinition{
-			dynamodb.AttributeDefinition{
-				AttributeName: aws.String(configuration.PartitionKey.Field),
-				AttributeType: aws.String(configuration.PartitionKey.Type),
-			},
-		}
-
-	default:
-		tableSchema = []dynamodb.AttributeDefinition{
-			dynamodb.AttributeDefinition{
-				AttributeName: aws.String(configuration.PartitionKey.Field),
-				AttributeType: aws.String(configuration.PartitionKey.Type),
-			},
-			dynamodb.AttributeDefinition{
-				AttributeName: aws.String(configuration.SortKey.Field),
-				AttributeType: aws.String(configuration.SortKey.Type),
-			},
-		}
-	}
-	return tableSchema, nil
-}
-
 func encodeEndpointsInput(writer *cbor.Writer) error {
 	if err := encodeServiceAndMethod(endpoints_455855874_1_Id, writer); err != nil {
 		return err
@@ -269,8 +216,18 @@ func encodeDefineKeySchemaInput(table string, writer *cbor.Writer) error {
 }
 
 func encodePutItemInput(ctx aws.Context, input *dynamodb.PutItemInput, keySchema *lru.Lru, attrNamesListToId *lru.Lru, writer *cbor.Writer) error {
+	type PutItemConfiguration struct {
+		TableSchema []dynamodb.AttributeDefinition
+		ItemInput   *dynamodb.PutItemInput
+	}
+	var config PutItemConfiguration
+	var keys []dynamodb.AttributeDefinition
 	if input == nil {
-		return awserr.New(request.ParamRequiredErrCode, fmt.Sprintf("input cannot be nil"), nil)
+		if _, err := toml.DecodeFile("../configurations/PutItem.toml", &config); err != nil {
+			return err
+		}
+		input = config.ItemInput
+		keys = config.TableSchema
 	}
 	var err error
 	if err = input.Validate(); err != nil {
@@ -292,11 +249,6 @@ func encodePutItemInput(ctx aws.Context, input *dynamodb.PutItemInput, keySchema
 		return err
 	}
 
-	var keys []dynamodb.AttributeDefinition
-	if keys, err = readConfigurationsFile("PutItem"); err != nil {
-		return err
-	}
-
 	if err := cbor.EncodeItemKey(input.Item, keys, writer); err != nil {
 		return err
 	}
@@ -310,8 +262,18 @@ func encodePutItemInput(ctx aws.Context, input *dynamodb.PutItemInput, keySchema
 }
 
 func encodeDeleteItemInput(ctx aws.Context, input *dynamodb.DeleteItemInput, keySchema *lru.Lru, writer *cbor.Writer) error {
+	type DeleteItemConfiguration struct {
+		TableSchema []dynamodb.AttributeDefinition
+		ItemInput   *dynamodb.DeleteItemInput
+	}
+	var config DeleteItemConfiguration
+	var keys []dynamodb.AttributeDefinition
 	if input == nil {
-		return awserr.New(request.ParamRequiredErrCode, fmt.Sprintf("input cannot be nil"), nil)
+		if _, err := toml.DecodeFile("../configurations/DeleteItem.toml", &config); err != nil {
+			return err
+		}
+		input = config.ItemInput
+		keys = config.TableSchema
 	}
 	var err error
 	if err = input.Validate(); err != nil {
@@ -333,11 +295,6 @@ func encodeDeleteItemInput(ctx aws.Context, input *dynamodb.DeleteItemInput, key
 		return err
 	}
 
-	var keys []dynamodb.AttributeDefinition
-	if keys, err = readConfigurationsFile("DeleteItem"); err != nil {
-		return err
-	}
-
 	if err := cbor.EncodeItemKey(input.Key, keys, writer); err != nil {
 		return err
 	}
@@ -347,8 +304,18 @@ func encodeDeleteItemInput(ctx aws.Context, input *dynamodb.DeleteItemInput, key
 }
 
 func encodeUpdateItemInput(ctx aws.Context, input *dynamodb.UpdateItemInput, keySchema *lru.Lru, writer *cbor.Writer) error {
+	type UpdateItemConfiguration struct {
+		TableSchema []dynamodb.AttributeDefinition
+		ItemInput   *dynamodb.UpdateItemInput
+	}
+	var config UpdateItemConfiguration
+	var keys []dynamodb.AttributeDefinition
 	if input == nil {
-		return awserr.New(request.ParamRequiredErrCode, fmt.Sprintf("input cannot be nil"), nil)
+		if _, err := toml.DecodeFile("../configurations/UpdateItem.toml", &config); err != nil {
+			return err
+		}
+		input = config.ItemInput
+		keys = config.TableSchema
 	}
 	var err error
 	if err = input.Validate(); err != nil {
@@ -370,11 +337,6 @@ func encodeUpdateItemInput(ctx aws.Context, input *dynamodb.UpdateItemInput, key
 		return err
 	}
 
-	var keys []dynamodb.AttributeDefinition
-	if keys, err = readConfigurationsFile("UpdateItem"); err != nil {
-		return err
-	}
-
 	if err := cbor.EncodeItemKey(input.Key, keys, writer); err != nil {
 		return err
 	}
@@ -384,9 +346,23 @@ func encodeUpdateItemInput(ctx aws.Context, input *dynamodb.UpdateItemInput, key
 }
 
 func encodeGetItemInput(ctx aws.Context, input *dynamodb.GetItemInput, keySchema *lru.Lru, writer *cbor.Writer) error {
-	if input == nil {
-		return awserr.New(request.ParamRequiredErrCode, fmt.Sprintf("input cannot be nil"), nil)
+	type GetItemConfiguration struct {
+		TableSchema []dynamodb.AttributeDefinition
+		ItemInput   *dynamodb.GetItemInput
 	}
+
+	var config GetItemConfiguration
+	var keys []dynamodb.AttributeDefinition
+
+	if input == nil {
+		// Input is nil, get Configuration from TOML file
+		if _, err := toml.DecodeFile("../configurations/GetItem.toml", &config); err != nil {
+			return err
+		}
+		input = config.ItemInput
+		keys = config.TableSchema
+	}
+
 	var err error
 	if err = input.Validate(); err != nil {
 		return err
@@ -404,13 +380,6 @@ func encodeGetItemInput(ctx aws.Context, input *dynamodb.GetItemInput, keySchema
 		return err
 	}
 	if err := writer.WriteBytes([]byte(table)); err != nil {
-		return err
-	}
-
-	// Read the TOML file from the configurations folder
-	// There is a request specific configuration file
-	var keys []dynamodb.AttributeDefinition
-	if keys, err = readConfigurationsFile("GetItem"); err != nil {
 		return err
 	}
 
