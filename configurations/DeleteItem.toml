@@ -1,7 +1,11 @@
-[[Operation]]
-[PartitionKey]
-field = "PartitionKey"
-type = "S"
-[SortKey]
-field = "SortKey"
-type = "S"
+# THIS FILE IS AN EXAMPLE
+
+# Define here the infomations about your table
+
+TableSchema = [
+    {AttributeName = "PartitionKey", AttributeType = "S"}
+]
+
+[ItemInput] 
+    TableName = "TestTable"
+    Key = { PartitionKey = {S = "PartitionKey"}, SortKey = {S = "SortKey"} }

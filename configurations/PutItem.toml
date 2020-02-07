@@ -1,7 +1,9 @@
-[[Operation]]
-[PartitionKey]
-field = "PartitionKey"
-type = "S"
-[SortKey]
-field = "SortKey"
-type = "S"
+# Configuration file for PutItem Request
+
+TableSchema = [
+    {AttributeName = "PartitionKey", AttributeType = "S"}
+]
+
+[ItemInput] 
+    TableName = "TestTable"
+    Item = { PartitionKey = {S = "PartitionKey"}, SortKey = {S = "SortKey"} }

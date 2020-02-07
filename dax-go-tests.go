@@ -8,7 +8,6 @@ package main
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
@@ -24,47 +23,76 @@ func executeGetItemRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.GetIt
 	// Now execute the GetItem request
 	// Run it over the TestTable, pk Nome and sk Idade
 
-	return daxClient.GetItem(
-		&dynamodb.GetItemInput{
-			TableName: aws.String("TestTable"),
-			Key: map[string]*dynamodb.AttributeValue{
-				"PartitionKey": {S: aws.String("Nome")},
-				"SortKey":      {S: aws.String("Idade")},
-			}})
+	return daxClient.GetItem(nil)
+
+	// return daxClient.GetItem(
+	// 	&dynamodb.GetItemInput{
+	// 		TableName: aws.String("TestTable"),
+	// 		Key: map[string]*dynamodb.AttributeValue{
+	// 			"PartitionKey": {S: aws.String("Nome")},
+	// 			"SortKey":      {S: aws.String("Idade")},
+	// 		}})
 }
 
 func executePutItemRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.PutItemOutput, error) {
-	return daxClient.PutItem(
-		&dynamodb.PutItemInput{
-			TableName: aws.String("TestTable"),
-			Item: map[string]*dynamodb.AttributeValue{
-				"PartitionKey": {S: aws.String("Nome")},
-				"SortKey":      {S: aws.String("Idade")},
-				"ItemData":     {S: aws.String("YES YES")},
-			},
-		})
+	return daxClient.PutItem(nil)
+	// return daxClient.PutItem(
+	// 	&dynamodb.PutItemInput{
+	// 		TableName: aws.String("TestTable"),
+	// 		Item: map[string]*dynamodb.AttributeValue{
+	// 			"PartitionKey": {S: aws.String("Nome")},
+	// 			"SortKey":      {S: aws.String("Idade")},
+	// 			"ItemData":     {S: aws.String("YES YES")},
+	// 		},
+	// 	})
 }
 
 func executeDeleteItemRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.DeleteItemOutput, error) {
-	return daxClient.DeleteItem(
-		&dynamodb.DeleteItemInput{
-			TableName: aws.String("TestTable"),
-			Key: map[string]*dynamodb.AttributeValue{
-				"PartitionKey": {S: aws.String("Nome")},
-				"SortKey":      {S: aws.String("Idade")},
-			},
-		})
+	return daxClient.DeleteItem(nil)
+	// return daxClient.DeleteItem(
+	// 	&dynamodb.DeleteItemInput{
+	// 		TableName: aws.String("TestTable"),
+	// 		Key: map[string]*dynamodb.AttributeValue{
+	// 			"PartitionKey": {S: aws.String("Nome")},
+	// 			"SortKey":      {S: aws.String("Idade")},
+	// 		},
+	// 	})
 }
 
 func executeUpdateItemRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.UpdateItemOutput, error) {
-	return daxClient.UpdateItem(
-		&dynamodb.UpdateItemInput{
-			TableName: aws.String("TestTable"),
-			Key: map[string]*dynamodb.AttributeValue{
-				"PartitionKey": {S: aws.String("Nome")},
-				"SortKey":      {S: aws.String("Idade")},
-			},
-		})
+	return daxClient.UpdateItem(nil)
+	// return daxClient.UpdateItem(
+	// 	&dynamodb.UpdateItemInput{
+	// 		TableName: aws.String("TestTable"),
+	// 		Key: map[string]*dynamodb.AttributeValue{
+	// 			"PartitionKey": {S: aws.String("Nome")},
+	// 			"SortKey":      {S: aws.String("Idade")},
+	// 		},
+	// 	})
+}
+
+func executeBatchGetItemRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.BatchGetItemOutput, error) {
+	return nil, nil
+}
+
+func executeBatchWriteItemRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.BatchWriteItemOutput, error) {
+	return nil, nil
+}
+
+func executeTransactGetItemsRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.TransactGetItemsOutput, error) {
+	return nil, nil
+}
+
+func executeTransactWriteItemsRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.TransactWriteItemsOutput, error) {
+	return nil, nil
+}
+
+func executeQueryRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.QueryOutput, error) {
+	return nil, nil
+}
+
+func executeScanRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.ScanOutput, error) {
+	return nil, nil
 }
 
 func main() {
