@@ -723,7 +723,8 @@ func (client *SingleDaxClient) executeWithContext(ctx aws.Context, op string, en
 		return err
 	}
 
-	f, err := os.OpenFile(op, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
+	// f, err := os.OpenFile(op, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
+	f, err := os.OpenFile(op, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
 		return err
 	}
