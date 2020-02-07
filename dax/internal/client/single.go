@@ -265,7 +265,7 @@ func (client *SingleDaxClient) DeleteItemWithOptions(input *dynamodb.DeleteItemI
 		output, err = decodeDeleteItemOutput(opt.Context, reader, input, client.keySchema, client.attrListIdToNames, output)
 		return err
 	}
-	if err = os.Chdir("PutItem"); err != nil {
+	if err = os.Chdir("DeleteItem"); err != nil {
 		return nil, err
 	}
 	if err = client.executeWithRetries(OpDeleteItem, opt, encoder, decoder); err != nil {
@@ -278,7 +278,7 @@ func (client *SingleDaxClient) DeleteItemWithOptions(input *dynamodb.DeleteItemI
 }
 
 func (client *SingleDaxClient) UpdateItemWithOptions(input *dynamodb.UpdateItemInput, output *dynamodb.UpdateItemOutput, opt RequestOptions) (*dynamodb.UpdateItemOutput, error) {
-	os.Mkdir("Updateitem", 0777)
+	os.Mkdir("UpdateItem", 0777)
 	encoder := func(writer *cbor.Writer) error {
 		return encodeUpdateItemInput(opt.Context, input, client.keySchema, writer)
 	}
@@ -287,7 +287,7 @@ func (client *SingleDaxClient) UpdateItemWithOptions(input *dynamodb.UpdateItemI
 		output, err = decodeUpdateItemOutput(opt.Context, reader, input, client.keySchema, client.attrListIdToNames, output)
 		return err
 	}
-	if err = os.Chdir("PutItem"); err != nil {
+	if err = os.Chdir("UpdateItem"); err != nil {
 		return nil, err
 	}
 	if err = client.executeWithRetries(OpUpdateItem, opt, encoder, decoder); err != nil {
