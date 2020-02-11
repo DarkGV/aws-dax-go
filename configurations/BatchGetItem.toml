@@ -1,0 +1,7 @@
+[TableSchema]
+TestTable = [{AttributeName = "PartitionKey", AttributeType = "S"}, {AttributeName = "SortKey", AttributeType = "S"}]
+
+[ItemInput] 
+    [ItemInput.RequestItems]
+        TestTable = {Keys=[{PartitionKey={S="PartitionKey"}, SortKey={S="SortKey"}}]}
+        

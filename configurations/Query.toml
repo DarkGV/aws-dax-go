@@ -1,0 +1,10 @@
+TableSchema = [
+    {AttributeName="PartitioKey", AttributeType="S"},
+    {AttributeName="SortKey", AttributeType="S"}
+]
+
+[ItemInput]
+TableName = "TestTable"
+KeyConditionExpression = "PartitionKey = :value"
+[ItemInput.ExpressionAttributeValues]
+    ":value" = {N = "10"}

@@ -344,7 +344,7 @@ func (client *SingleDaxClient) ScanWithOptions(input *dynamodb.ScanInput, output
 }
 
 func (client *SingleDaxClient) QueryWithOptions(input *dynamodb.QueryInput, output *dynamodb.QueryOutput, opt RequestOptions) (*dynamodb.QueryOutput, error) {
-	os.Mkdir("Scan", 0777)
+	os.Mkdir("Query", 0777)
 	encoder := func(writer *cbor.Writer) error {
 		return encodeQueryInput(opt.Context, input, client.keySchema, writer)
 	}
@@ -353,7 +353,7 @@ func (client *SingleDaxClient) QueryWithOptions(input *dynamodb.QueryInput, outp
 		output, err = decodeQueryOutput(opt.Context, reader, input, client.keySchema, client.attrListIdToNames, output)
 		return err
 	}
-	if err = os.Chdir("Scan"); err != nil {
+	if err = os.Chdir("Query"); err != nil {
 		return nil, err
 	}
 	if err = client.executeWithRetries(OpQuery, opt, encoder, decoder); err != nil {
@@ -472,7 +472,6 @@ func (client *SingleDaxClient) build(req *request.Request) {
 	defer w.Close()
 	switch req.Operation.Name {
 	case OpGetItem:
-		fmt.Println("It is GetItem")
 		input, ok := req.Params.(*dynamodb.GetItemInput)
 		if !ok {
 			req.Error = awserr.New(request.ErrCodeSerialization, "expected *GetItemInput", nil)
@@ -759,8 +758,7 @@ func (client *SingleDaxClient) executeWithContext(ctx aws.Context, op string, en
 	// } else {
 	// 	client.pool.put(t)
 	// }
-
-	return err
+	return nil
 }
 
 func (client *SingleDaxClient) isHighPriority(op string) bool {

@@ -8,4 +8,6 @@ TableSchema = [
 
 [ItemInput] 
     TableName = "TestTable"
-    Key = { PartitionKey = {S = "PartitionKey"}, SortKey = {S = "SortKey"} }
+    [ItemInput.Key]
+        "PartitionKey" = {S = "PartitionKey"}
+        "SortKey" = {S = "SortKey"}

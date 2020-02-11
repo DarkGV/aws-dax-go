@@ -429,8 +429,21 @@ func encodeScanInput(ctx aws.Context, input *dynamodb.ScanInput, keySchema *lru.
 }
 
 func encodeQueryInput(ctx aws.Context, input *dynamodb.QueryInput, keySchema *lru.Lru, writer *cbor.Writer) error {
+	type QueryConfiguration struct {
+		TableSchema []dynamodb.AttributeDefinition
+		ItemInput   *dynamodb.QueryInput
+	}
+
+	var config QueryConfiguration
+	//	var keys []dynamodb.AttributeDefinition
+
 	if input == nil {
-		return awserr.New(request.ParamRequiredErrCode, fmt.Sprintf("input cannot be nil"), nil)
+		// Input is nil, get Configuration from TOML file
+		if _, err := toml.DecodeFile("../configurations/Query.toml", &config); err != nil {
+			return err
+		}
+		input = config.ItemInput
+		//keys = config.TableSchema
 	}
 	var err error
 	if err = input.Validate(); err != nil {
@@ -460,8 +473,20 @@ func encodeQueryInput(ctx aws.Context, input *dynamodb.QueryInput, keySchema *lr
 }
 
 func encodeBatchWriteItemInput(ctx aws.Context, input *dynamodb.BatchWriteItemInput, keySchema *lru.Lru, attrNamesListToId *lru.Lru, writer *cbor.Writer) error {
+	type QueryConfiguration struct {
+		TableSchema map[string][]dynamodb.AttributeDefinition
+		ItemInput   *dynamodb.BatchWriteItemInput
+	}
+	var config QueryConfiguration
+	var keys map[string][]dynamodb.AttributeDefinition
+
 	if input == nil {
-		return awserr.New(request.ParamRequiredErrCode, fmt.Sprintf("input cannot be nil"), nil)
+		// Input is nil, get Configuration from TOML file
+		if _, err := toml.DecodeFile("../configurations/BatchWriteItem.toml", &config); err != nil {
+			panic(err)
+		}
+		input = config.ItemInput
+		keys = config.TableSchema
 	}
 	var err error
 	if err = input.Validate(); err != nil {
@@ -475,7 +500,7 @@ func encodeBatchWriteItemInput(ctx aws.Context, input *dynamodb.BatchWriteItemIn
 	}
 	totalRequests := 0
 	for table, wrs := range input.RequestItems {
-		keys, err := getKeySchema(ctx, keySchema, table)
+		_, err := getKeySchema(ctx, keySchema, table)
 		if err != nil {
 			return err
 		}
@@ -498,20 +523,20 @@ func encodeBatchWriteItemInput(ctx aws.Context, input *dynamodb.BatchWriteItemIn
 			return err
 		}
 
-		if hasDuplicatesWriteRequests(wrs, keys) {
+		if hasDuplicatesWriteRequests(wrs, keys[table]) {
 			return awserr.New(request.InvalidParameterErrCode, "Provided list of item keys contains duplicates", nil)
 		}
 		for _, wr := range wrs {
 			if pr := wr.PutRequest; pr != nil {
 				attrs := pr.Item
-				if err = cbor.EncodeItemKey(attrs, keys, writer); err != nil {
+				if err = cbor.EncodeItemKey(attrs, keys[table], writer); err != nil {
 					return err
 				}
-				if err = encodeNonKeyAttributes(ctx, attrs, keys, attrNamesListToId, writer); err != nil {
+				if err = encodeNonKeyAttributes(ctx, attrs, keys[table], attrNamesListToId, writer); err != nil {
 					return err
 				}
 			} else if dr := wr.DeleteRequest; dr != nil {
-				if err = cbor.EncodeItemKey(dr.Key, keys, writer); err != nil {
+				if err = cbor.EncodeItemKey(dr.Key, keys[table], writer); err != nil {
 					return err
 				}
 				if err = writer.WriteNull(); err != nil {
@@ -526,8 +551,20 @@ func encodeBatchWriteItemInput(ctx aws.Context, input *dynamodb.BatchWriteItemIn
 }
 
 func encodeBatchGetItemInput(ctx aws.Context, input *dynamodb.BatchGetItemInput, keySchema *lru.Lru, writer *cbor.Writer) error {
+	type QueryConfiguration struct {
+		TableSchema map[string][]dynamodb.AttributeDefinition
+		ItemInput   *dynamodb.BatchGetItemInput
+	}
+	var config QueryConfiguration
+	var tableKeys map[string][]dynamodb.AttributeDefinition
+
 	if input == nil {
-		return awserr.New(request.ParamRequiredErrCode, fmt.Sprintf("input cannot be nil"), nil)
+		// Input is nil, get Configuration from TOML file
+		if _, err := toml.DecodeFile("../configurations/BatchGetItem.toml", &config); err != nil {
+			panic(err)
+		}
+		input = config.ItemInput
+		tableKeys = config.TableSchema
 	}
 	var err error
 	if err = input.Validate(); err != nil {
@@ -578,18 +615,18 @@ func encodeBatchGetItemInput(ctx aws.Context, input *dynamodb.BatchGetItemInput,
 			}
 		}
 
-		tableKeys, err := getKeySchema(ctx, keySchema, table)
+		_, err := getKeySchema(ctx, keySchema, table)
 		if err != nil {
 			return err
 		}
 		if err = writer.WriteArrayHeader(len(kaas.Keys)); err != nil {
 			return err
 		}
-		if hasDuplicateKeysAndAttributes(kaas, tableKeys) {
+		if hasDuplicateKeysAndAttributes(kaas, tableKeys[table]) {
 			return awserr.New(request.InvalidParameterErrCode, "Provided list of item keys contains duplicates", nil)
 		}
 		for _, keys := range kaas.Keys {
-			if err = cbor.EncodeItemKey(keys, tableKeys, writer); err != nil {
+			if err = cbor.EncodeItemKey(keys, tableKeys[table], writer); err != nil {
 				return err
 			}
 		}
@@ -599,8 +636,20 @@ func encodeBatchGetItemInput(ctx aws.Context, input *dynamodb.BatchGetItemInput,
 }
 
 func encodeTransactWriteItemsInput(ctx aws.Context, input *dynamodb.TransactWriteItemsInput, keySchema *lru.Lru, attrNamesListToId *lru.Lru, writer *cbor.Writer) error {
+	type QueryConfiguration struct {
+		TableSchema map[string][]dynamodb.AttributeDefinition
+		ItemInput   *dynamodb.TransactWriteItemsInput
+	}
+	var config QueryConfiguration
+	var keys map[string][]dynamodb.AttributeDefinition
+
 	if input == nil {
-		return awserr.New(request.ParamRequiredErrCode, "input cannot be nil", nil)
+		// Input is nil, get Configuration from TOML file
+		if _, err := toml.DecodeFile("../configurations/TransactWriteItems.toml", &config); err != nil {
+			panic(err)
+		}
+		input = config.ItemInput
+		keys = config.TableSchema
 	}
 	var err error
 	if err = input.Validate(); err != nil {
@@ -723,7 +772,9 @@ func encodeTransactWriteItemsInput(ctx aws.Context, input *dynamodb.TransactWrit
 			return err
 		}
 
-		keydef, err := getKeySchema(ctx, keySchema, *tableName)
+		keydef := keys[*tableName]
+
+		_, err := getKeySchema(ctx, keySchema, *tableName)
 		if err != nil {
 			return nil
 		}
@@ -849,8 +900,20 @@ func encodeTransactWriteItemsInput(ctx aws.Context, input *dynamodb.TransactWrit
 }
 
 func encodeTransactGetItemsInput(ctx aws.Context, input *dynamodb.TransactGetItemsInput, keySchema *lru.Lru, writer *cbor.Writer) error {
+	type QueryConfiguration struct {
+		TableSchema map[string][]dynamodb.AttributeDefinition
+		ItemInput   *dynamodb.TransactGetItemsInput
+	}
+	var config QueryConfiguration
+	var keys map[string][]dynamodb.AttributeDefinition
+
 	if input == nil {
-		return awserr.New(request.ParamRequiredErrCode, "input cannot be nil", nil)
+		// Input is nil, get Configuration from TOML file
+		if _, err := toml.DecodeFile("../configurations/TransactGetItems.toml", &config); err != nil {
+			panic(err)
+		}
+		input = config.ItemInput
+		keys = config.TableSchema
 	}
 	var err error
 	if err = input.Validate(); err != nil {
@@ -901,7 +964,8 @@ func encodeTransactGetItemsInput(ctx aws.Context, input *dynamodb.TransactGetIte
 			return err
 		}
 
-		keydef, err := getKeySchema(ctx, keySchema, *tableName)
+		keydef := keys[*tableName]
+		_, err := getKeySchema(ctx, keySchema, *tableName)
 		if err != nil {
 			return err
 		}
@@ -1231,6 +1295,10 @@ func encodeExpressions(projection, filter, keyCondition *string, exprAttrNames m
 		expressions[parser.KeyConditionExpr] = *keyCondition
 	}
 	encoder := parser.NewExpressionEncoder(expressions, exprAttrNames, exprAttrValues)
+	if _, err := encoder.Parse(); err != nil {
+		fmt.Println("Error")
+	}
+
 	return encoder.Parse()
 }
 

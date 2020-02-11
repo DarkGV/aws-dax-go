@@ -1,0 +1,9 @@
+[TableSchema]
+TestTable = [{AttributeName = "PartitionKey", AttributeType = "S"}, {AttributeName = "SortKey", AttributeType = "S"}]
+
+[ItemInput]
+    TransactItems = [
+        {Delete = {TableName = "TestTable",Key = {PartitionKey = {S = "PartitionKey"}, SortKey = {S = "SortKey"}}}},
+        {Put = {TableName = "TestTable",Item = {PartitionKey = {S = "Nome"}, SortKey = {S = "Idade"}} }}
+    ]
+

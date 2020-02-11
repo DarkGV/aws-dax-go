@@ -72,23 +72,23 @@ func executeUpdateItemRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.Up
 }
 
 func executeBatchGetItemRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.BatchGetItemOutput, error) {
-	return nil, nil
+	return daxClient.BatchGetItem(nil)
 }
 
 func executeBatchWriteItemRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.BatchWriteItemOutput, error) {
-	return nil, nil
+	return daxClient.BatchWriteItem(nil)
 }
 
 func executeTransactGetItemsRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.TransactGetItemsOutput, error) {
-	return nil, nil
+	return daxClient.TransactGetItems(nil)
 }
 
 func executeTransactWriteItemsRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.TransactWriteItemsOutput, error) {
-	return nil, nil
+	return daxClient.TransactWriteItems(nil)
 }
 
 func executeQueryRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.QueryOutput, error) {
-	return nil, nil
+	return daxClient.Query(nil)
 }
 
 func executeScanRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.ScanOutput, error) {
@@ -128,6 +128,26 @@ func main() {
 	}
 
 	if _, err := executeScanRequest(client); err != nil {
+		fmt.Println(err)
+	}
+
+	if _, err := executeQueryRequest(client); err != nil {
+		fmt.Println(err)
+	}
+
+	if _, err := executeTransactWriteItemsRequest(client); err != nil {
+		fmt.Println(err)
+	}
+
+	if _, err := executeTransactGetItemsRequest(client); err != nil {
+		fmt.Println(err)
+	}
+
+	if _, err := executeBatchGetItemRequest(client); err != nil {
+		fmt.Println(err)
+	}
+
+	if _, err := executeBatchWriteItemRequest(client); err != nil {
 		fmt.Println(err)
 	}
 

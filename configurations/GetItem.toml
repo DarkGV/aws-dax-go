@@ -3,7 +3,8 @@
 # Define here the infomations about your table
 
 TableSchema = [
-    {AttributeName = "PartitionKey", AttributeType = "S"}
+    {AttributeName = "PartitionKey", AttributeType = "S"},
+    {AttributeName = "SortKey", AttributeType = "S"}
 ]
 
 [ItemInput] 
