@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strconv"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -43,6 +44,8 @@ type Writer struct {
 	buf     []byte
 	scratch [9]byte
 	recycle bool
+	data    []byte
+	n       int
 }
 
 var bufferedWriterPool = sync.Pool{
@@ -63,12 +66,28 @@ func NewWriter(w io.Writer) *Writer {
 		w:       w,
 		bw:      bw,
 		recycle: !ok,
+		data:    make([]byte, bw.Size()),
+		n:       0,
 	}
 	cw.buf = cw.scratch[:]
 	return &cw
 }
 
 func (w *Writer) Flush() error {
+	w.bw.WriteString("<<")
+	for i := 0; i < w.n; i++ {
+		w.bw.WriteString(strconv.FormatInt(int64(w.data[i]), 10))
+		if i < w.n-1 {
+			w.bw.WriteString(",")
+		}
+	}
+	return w.bw.Flush()
+}
+
+func (w *Writer) newFlush() error {
+	for i := 0; i < w.n; i++ {
+		w.bw.WriteByte(w.data[i])
+	}
 	return w.bw.Flush()
 }
 
@@ -82,8 +101,9 @@ func (w *Writer) WriteFloat(v float32) error {
 		byte(bits>>8),
 		byte(bits))
 
-	_, err := w.bw.Write(w.buf[:5])
-	return err
+	w.saveData(w.buf[:5])
+	//_, err := w.bw.Write(w.buf[:5])
+	return nil
 }
 
 func (w *Writer) WriteFloat64(v float64) error {
@@ -99,7 +119,9 @@ func (w *Writer) WriteBoolean(b bool) error {
 	if b {
 		v = True
 	}
-	return w.bw.WriteByte(byte(v))
+	w.data[w.n] = byte(v)
+	w.n++
+	return nil // w.bw.WriteByte(byte(v))
 }
 
 func (w *Writer) WriteBytes(b []byte) error {
@@ -108,7 +130,8 @@ func (w *Writer) WriteBytes(b []byte) error {
 	}
 	err := w.writeType(Bytes, uint64(len(b)))
 	if err == nil {
-		_, err = w.bw.Write(b)
+		w.saveData(b)
+		//_, err = w.bw.Write(b)
 	}
 	return err
 }
@@ -116,7 +139,9 @@ func (w *Writer) WriteBytes(b []byte) error {
 func (w *Writer) WriteString(s string) error {
 	err := w.writeType(Utf, uint64(len(s)))
 	if err == nil {
-		_, err = w.bw.WriteString(s)
+		n := copy(w.data[w.n:], s)
+		w.n += n
+		//_, err = w.bw.WriteString(s)
 	}
 	return err
 }
@@ -150,13 +175,16 @@ func (w *Writer) WriteNull() error {
 }
 
 func (w *Writer) write(b byte) error {
-	err := w.bw.WriteByte(b)
-	return err
+	w.data[w.n] = b
+	w.n++
+	//err := w.bw.WriteByte(b)
+	return nil
 }
 
 func (w *Writer) Write(b []byte) error {
-	_, err := w.bw.Write(b)
-	return err
+	w.saveData(b)
+	//_, err := w.bw.Write(b)
+	return nil
 }
 
 func (w *Writer) WriteInt(value int) error {
@@ -168,14 +196,26 @@ func (w *Writer) WriteInt64(value int64) error {
 	return w.writeType(ui&0x20, ui^uint64(value))
 }
 
+func (w *Writer) saveData(d []byte) error {
+	n := copy(w.data[w.n:], d)
+	w.n += n
+	return nil
+}
+
 func (w *Writer) writeType(mt uint64, ui uint64) (err error) {
 	switch {
 	case ui < Size8:
-		err = w.bw.WriteByte(byte(mt + ui))
+		w.data[w.n] = byte(mt + ui)
+		w.n++
+		//err = w.bw.WriteByte(byte(mt + ui))
 	case ui < 1<<8:
-		err = w.bw.WriteByte(byte(mt + Size8))
+		w.data[w.n] = byte(mt + Size8)
+		w.n++
+		//err = w.bw.WriteByte(byte(mt + Size8))
 		if err == nil {
-			err = w.bw.WriteByte(byte(ui))
+			w.data[w.n] = byte(ui)
+			w.n++
+			//err = w.bw.WriteByte(byte(ui))
 		}
 	// Abuse append.
 	case ui < 1<<16:
@@ -183,7 +223,8 @@ func (w *Writer) writeType(mt uint64, ui uint64) (err error) {
 			byte(mt+Size16),
 			byte(ui>>8),
 			byte(ui))
-		_, err = w.bw.Write(w.buf[:3])
+		w.saveData(w.buf[:3])
+		//_, err = w.bw.Write(w.buf[:3])
 	case ui < 1<<32:
 		_ = append(w.buf[:0],
 			byte(mt+Size32),
@@ -191,7 +232,8 @@ func (w *Writer) writeType(mt uint64, ui uint64) (err error) {
 			byte(ui>>16),
 			byte(ui>>8),
 			byte(ui))
-		_, err = w.bw.Write(w.buf[:5])
+		w.saveData(w.buf[:5])
+		//_, err = w.bw.Write(w.buf[:5])
 	default:
 		_ = append(w.buf[:0],
 			byte(mt+Size64),
@@ -203,7 +245,8 @@ func (w *Writer) writeType(mt uint64, ui uint64) (err error) {
 			byte(ui>>16),
 			byte(ui>>8),
 			byte(ui))
-		_, err = w.bw.Write(w.buf)
+		w.saveData(w.buf)
+		//_, err = w.bw.Write(w.buf)
 	}
 	return
 }
@@ -221,8 +264,9 @@ func (w *Writer) writeType64(typ uint64, ui uint64) error {
 		byte(ui>>8),
 		byte(ui))
 
-	_, err := w.bw.Write(w.buf)
-	return err
+	w.saveData(w.buf)
+	//_, err := w.bw.Write(w.buf)
+	return nil
 }
 
 func (w *Writer) Close() error {

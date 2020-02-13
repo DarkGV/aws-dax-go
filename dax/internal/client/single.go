@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"syscall"
 	"time"
 
 	"../cbor"
@@ -160,8 +161,8 @@ func (client *SingleDaxClient) Close() error {
 }
 
 func (client *SingleDaxClient) endpoints(opt RequestOptions) ([]serviceEndpoint, error) {
-	encoder := func(writer *cbor.Writer) error {
-		return encodeEndpointsInput(writer)
+	encoder := func(writer *cbor.Writer) (*cbor.Writer, error) {
+		return nil, encodeEndpointsInput(writer)
 	}
 	var out []serviceEndpoint
 	var err error
@@ -179,8 +180,8 @@ func (client *SingleDaxClient) defineAttributeListId(ctx aws.Context, attrNames 
 	if len(attrNames) == 0 {
 		return emptyAttributeListId, nil
 	}
-	encoder := func(writer *cbor.Writer) error {
-		return encodeDefineAttributeListIdInput(attrNames, writer)
+	encoder := func(writer *cbor.Writer) (*cbor.Writer, error) {
+		return nil, encodeDefineAttributeListIdInput(attrNames, writer)
 	}
 	var out int64
 	var err error
@@ -199,8 +200,8 @@ func (client *SingleDaxClient) defineAttributeList(ctx aws.Context, id int64) ([
 	if id == emptyAttributeListId {
 		return []string{}, nil
 	}
-	encoder := func(writer *cbor.Writer) error {
-		return encodeDefineAttributeListInput(id, writer)
+	encoder := func(writer *cbor.Writer) (*cbor.Writer, error) {
+		return nil, encodeDefineAttributeListInput(id, writer)
 	}
 	var out []string
 	var err error
@@ -216,8 +217,8 @@ func (client *SingleDaxClient) defineAttributeList(ctx aws.Context, id int64) ([
 }
 
 func (client *SingleDaxClient) defineKeySchema(ctx aws.Context, table string) ([]dynamodb.AttributeDefinition, error) {
-	encoder := func(writer *cbor.Writer) error {
-		return encodeDefineKeySchemaInput(table, writer)
+	encoder := func(writer *cbor.Writer) (*cbor.Writer, error) {
+		return nil, encodeDefineKeySchemaInput(table, writer)
 	}
 	var out []dynamodb.AttributeDefinition
 	var err error
@@ -234,8 +235,8 @@ func (client *SingleDaxClient) defineKeySchema(ctx aws.Context, table string) ([
 
 func (client *SingleDaxClient) PutItemWithOptions(input *dynamodb.PutItemInput, output *dynamodb.PutItemOutput, opt RequestOptions) (*dynamodb.PutItemOutput, error) {
 	os.Mkdir("PutItem", 0777)
-	encoder := func(writer *cbor.Writer) error {
-		return encodePutItemInput(opt.Context, input, client.keySchema, client.attrNamesListToId, writer)
+	encoder := func(writer *cbor.Writer) (*cbor.Writer, error) {
+		return nil, encodePutItemInput(opt.Context, input, client.keySchema, client.attrNamesListToId, writer)
 	}
 	var err error
 	decoder := func(reader *cbor.Reader) error {
@@ -257,8 +258,8 @@ func (client *SingleDaxClient) PutItemWithOptions(input *dynamodb.PutItemInput, 
 
 func (client *SingleDaxClient) DeleteItemWithOptions(input *dynamodb.DeleteItemInput, output *dynamodb.DeleteItemOutput, opt RequestOptions) (*dynamodb.DeleteItemOutput, error) {
 	os.Mkdir("DeleteItem", 0777)
-	encoder := func(writer *cbor.Writer) error {
-		return encodeDeleteItemInput(opt.Context, input, client.keySchema, writer)
+	encoder := func(writer *cbor.Writer) (*cbor.Writer, error) {
+		return nil, encodeDeleteItemInput(opt.Context, input, client.keySchema, writer)
 	}
 	var err error
 	decoder := func(reader *cbor.Reader) error {
@@ -279,8 +280,8 @@ func (client *SingleDaxClient) DeleteItemWithOptions(input *dynamodb.DeleteItemI
 
 func (client *SingleDaxClient) UpdateItemWithOptions(input *dynamodb.UpdateItemInput, output *dynamodb.UpdateItemOutput, opt RequestOptions) (*dynamodb.UpdateItemOutput, error) {
 	os.Mkdir("UpdateItem", 0777)
-	encoder := func(writer *cbor.Writer) error {
-		return encodeUpdateItemInput(opt.Context, input, client.keySchema, writer)
+	encoder := func(writer *cbor.Writer) (*cbor.Writer, error) {
+		return nil, encodeUpdateItemInput(opt.Context, input, client.keySchema, writer)
 	}
 	var err error
 	decoder := func(reader *cbor.Reader) error {
@@ -300,8 +301,7 @@ func (client *SingleDaxClient) UpdateItemWithOptions(input *dynamodb.UpdateItemI
 }
 
 func (client *SingleDaxClient) GetItemWithOptions(input *dynamodb.GetItemInput, output *dynamodb.GetItemOutput, opt RequestOptions) (*dynamodb.GetItemOutput, error) {
-	os.Mkdir("GetItem", 0777)
-	encoder := func(writer *cbor.Writer) error {
+	encoder := func(writer *cbor.Writer) (*cbor.Writer, error) {
 		return encodeGetItemInput(opt.Context, input, client.keySchema, writer)
 	}
 	var err error
@@ -309,22 +309,16 @@ func (client *SingleDaxClient) GetItemWithOptions(input *dynamodb.GetItemInput, 
 		output, err = decodeGetItemOutput(opt.Context, reader, input, client.attrListIdToNames, output)
 		return err
 	}
-	if err = os.Chdir("GetItem"); err != nil {
-		return nil, err
-	}
 	if err = client.executeWithRetries(OpGetItem, opt, encoder, decoder); err != nil {
 		return output, err
-	}
-	if err = os.Chdir(".."); err != nil {
-		return nil, err
 	}
 	return output, nil
 }
 
 func (client *SingleDaxClient) ScanWithOptions(input *dynamodb.ScanInput, output *dynamodb.ScanOutput, opt RequestOptions) (*dynamodb.ScanOutput, error) {
 	os.Mkdir("Scan", 0777)
-	encoder := func(writer *cbor.Writer) error {
-		return encodeScanInput(opt.Context, input, client.keySchema, writer)
+	encoder := func(writer *cbor.Writer) (*cbor.Writer, error) {
+		return nil, encodeScanInput(opt.Context, input, client.keySchema, writer)
 	}
 	var err error
 	decoder := func(reader *cbor.Reader) error {
@@ -345,8 +339,8 @@ func (client *SingleDaxClient) ScanWithOptions(input *dynamodb.ScanInput, output
 
 func (client *SingleDaxClient) QueryWithOptions(input *dynamodb.QueryInput, output *dynamodb.QueryOutput, opt RequestOptions) (*dynamodb.QueryOutput, error) {
 	os.Mkdir("Query", 0777)
-	encoder := func(writer *cbor.Writer) error {
-		return encodeQueryInput(opt.Context, input, client.keySchema, writer)
+	encoder := func(writer *cbor.Writer) (*cbor.Writer, error) {
+		return nil, encodeQueryInput(opt.Context, input, client.keySchema, writer)
 	}
 	var err error
 	decoder := func(reader *cbor.Reader) error {
@@ -367,8 +361,8 @@ func (client *SingleDaxClient) QueryWithOptions(input *dynamodb.QueryInput, outp
 
 func (client *SingleDaxClient) BatchWriteItemWithOptions(input *dynamodb.BatchWriteItemInput, output *dynamodb.BatchWriteItemOutput, opt RequestOptions) (*dynamodb.BatchWriteItemOutput, error) {
 	os.Mkdir("BatchWriteItem", 0777)
-	encoder := func(writer *cbor.Writer) error {
-		return encodeBatchWriteItemInput(opt.Context, input, client.keySchema, client.attrNamesListToId, writer)
+	encoder := func(writer *cbor.Writer) (*cbor.Writer, error) {
+		return nil, encodeBatchWriteItemInput(opt.Context, input, client.keySchema, client.attrNamesListToId, writer)
 	}
 	var err error
 	decoder := func(reader *cbor.Reader) error {
@@ -389,8 +383,8 @@ func (client *SingleDaxClient) BatchWriteItemWithOptions(input *dynamodb.BatchWr
 
 func (client *SingleDaxClient) BatchGetItemWithOptions(input *dynamodb.BatchGetItemInput, output *dynamodb.BatchGetItemOutput, opt RequestOptions) (*dynamodb.BatchGetItemOutput, error) {
 	os.Mkdir("BatchGetItem", 0777)
-	encoder := func(writer *cbor.Writer) error {
-		return encodeBatchGetItemInput(opt.Context, input, client.keySchema, writer)
+	encoder := func(writer *cbor.Writer) (*cbor.Writer, error) {
+		return nil, encodeBatchGetItemInput(opt.Context, input, client.keySchema, writer)
 	}
 	var err error
 	decoder := func(reader *cbor.Reader) error {
@@ -411,8 +405,8 @@ func (client *SingleDaxClient) BatchGetItemWithOptions(input *dynamodb.BatchGetI
 
 func (client *SingleDaxClient) TransactWriteItemsWithOptions(input *dynamodb.TransactWriteItemsInput, output *dynamodb.TransactWriteItemsOutput, opt RequestOptions) (*dynamodb.TransactWriteItemsOutput, error) {
 	os.Mkdir("TransactWriteItems", 0777)
-	encoder := func(writer *cbor.Writer) error {
-		return encodeTransactWriteItemsInput(opt.Context, input, client.keySchema, client.attrNamesListToId, writer)
+	encoder := func(writer *cbor.Writer) (*cbor.Writer, error) {
+		return nil, encodeTransactWriteItemsInput(opt.Context, input, client.keySchema, client.attrNamesListToId, writer)
 	}
 	var err error
 	decoder := func(reader *cbor.Reader) error {
@@ -433,8 +427,8 @@ func (client *SingleDaxClient) TransactWriteItemsWithOptions(input *dynamodb.Tra
 
 func (client *SingleDaxClient) TransactGetItemsWithOptions(input *dynamodb.TransactGetItemsInput, output *dynamodb.TransactGetItemsOutput, opt RequestOptions) (*dynamodb.TransactGetItemsOutput, error) {
 	os.Mkdir("TransactGetItems", 0777)
-	encoder := func(writer *cbor.Writer) error {
-		return encodeTransactGetItemsInput(opt.Context, input, client.keySchema, writer)
+	encoder := func(writer *cbor.Writer) (*cbor.Writer, error) {
+		return nil, encodeTransactGetItemsInput(opt.Context, input, client.keySchema, writer)
 	}
 	var err error
 	decoder := func(reader *cbor.Reader) error {
@@ -477,7 +471,7 @@ func (client *SingleDaxClient) build(req *request.Request) {
 			req.Error = awserr.New(request.ErrCodeSerialization, "expected *GetItemInput", nil)
 			return
 		}
-		if err := encodeGetItemInput(req.Context(), input, client.keySchema, w); err != nil {
+		if _, err := encodeGetItemInput(req.Context(), input, client.keySchema, w); err != nil {
 			req.Error = translateError(err)
 			return
 		}
@@ -674,7 +668,7 @@ func (client *SingleDaxClient) newContext(o RequestOptions) aws.Context {
 	return aws.BackgroundContext()
 }
 
-func (client *SingleDaxClient) executeWithRetries(op string, o RequestOptions, encoder func(writer *cbor.Writer) error, decoder func(reader *cbor.Reader) error) error {
+func (client *SingleDaxClient) executeWithRetries(op string, o RequestOptions, encoder func(writer *cbor.Writer) (*cbor.Writer, error), decoder func(reader *cbor.Reader) error) error {
 	ctx := client.newContext(o)
 
 	var sleepFun func() error
@@ -716,21 +710,28 @@ func (client *SingleDaxClient) executeWithRetries(op string, o RequestOptions, e
 	return translateError(err)
 }
 
-func (client *SingleDaxClient) executeWithContext(ctx aws.Context, op string, encoder func(writer *cbor.Writer) error, decoder func(reader *cbor.Reader) error) error {
+func (client *SingleDaxClient) executeWithContext(ctx aws.Context, op string, encoder func(writer *cbor.Writer) (*cbor.Writer, error), decoder func(reader *cbor.Reader) error) error {
 	t, err := client.pool.getWithContext(ctx, client.isHighPriority(op))
 	if err != nil {
 		return err
 	}
 
+	var f *os.File
+	var writer *cbor.Writer
 	// f, err := os.OpenFile(op, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
-	f, err := os.OpenFile(op, os.O_WRONLY|os.O_CREATE, 0666)
-	if err != nil {
-		return err
+	switch op {
+	case OpGetItem:
+		if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
+			f.Write([]byte("{get_item_test, get_item, ")) // Let the encoder do the rest
+			f.Close()
+			writer = nil
+		}
+	default:
+		f, err = os.OpenFile(op, os.O_WRONLY|os.O_CREATE, 0666)
+		writer = cbor.NewWriter(bufio.NewWriter(f))
 	}
-
 	// writer := t.CborWriter()
-	writer := cbor.NewWriter(bufio.NewWriter(f))
-	if err = encoder(writer); err != nil {
+	if writer, err = encoder(writer); err != nil {
 		// Validation errors will cause pool to be discarded as there is no guarantee
 		// that the validation was performed before any data was written into tube
 		client.pool.discard(t)
@@ -739,6 +740,9 @@ func (client *SingleDaxClient) executeWithContext(ctx aws.Context, op string, en
 	if err := writer.Flush(); err != nil {
 		client.pool.discard(t)
 		return err
+	}
+	if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
+		f.Write([]byte(">>}")) // Let the encoder do the rest
 	}
 
 	// reader := t.CborReader()

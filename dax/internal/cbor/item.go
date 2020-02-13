@@ -150,7 +150,7 @@ func GetEncodedItemKey(item map[string]*dynamodb.AttributeValue, keydef []dynamo
 		}
 	}
 
-	if err := w.Flush(); err != nil {
+	if err := w.newFlush(); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil

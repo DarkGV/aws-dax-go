@@ -16,10 +16,14 @@
 package client
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
+	"os"
 	"sort"
+	"strconv"
 	"strings"
+	"syscall"
 
 	"../cbor"
 	"../lru"
@@ -145,6 +149,44 @@ const (
 
 const maxWriteBatchSize = 25
 
+func getItem_erlang_converter(input *dynamodb.GetItemInput, inputString string) string {
+	inputString += "["
+	if input.ProjectionExpression != nil {
+		inputString += "{projection_expression, " + *input.ProjectionExpression + "}"
+	}
+
+	if input.ReturnConsumedCapacity != nil {
+		if inputString[len(inputString)-1] != '[' {
+			inputString += ","
+		}
+		inputString += "{return_consumed_capacity, " + *input.ReturnConsumedCapacity + "}"
+	}
+
+	// if input.ExpressionAttributeNames != nil {
+	// 	if inputString[len(inputString)-1] != '[' {
+	// 		inputString += ","
+	// 	}
+	// 	inputString += "{expression_attribute_names, " + *input.ExpressionAttributeNames + "}"
+	// }
+
+	if input.ConsistentRead != nil {
+		if inputString[len(inputString)-1] != '[' {
+			inputString += ","
+		}
+		inputString += "{consistent_read, " + strconv.FormatBool(*input.ConsistentRead) + "}"
+	}
+
+	// if input.AttributesToGet != nil {
+	// 	if inputString[len(inputString)-1] != '[' {
+	// 		inputString += ","
+	// 	}
+	// 	inputString += "{attributes_to_get, " + input.AttributesToGet + "}"
+	// }
+
+	inputString += "]"
+	return inputString
+}
+
 func encodeEndpointsInput(writer *cbor.Writer) error {
 	if err := encodeServiceAndMethod(endpoints_455855874_1_Id, writer); err != nil {
 		return err
@@ -257,8 +299,10 @@ func encodePutItemInput(ctx aws.Context, input *dynamodb.PutItemInput, keySchema
 		return err
 	}
 
-	return encodeItemOperationOptionalParams(input.ReturnValues, input.ReturnConsumedCapacity, input.ReturnItemCollectionMetrics, nil,
+	_, err = encodeItemOperationOptionalParams(input.ReturnValues, input.ReturnConsumedCapacity, input.ReturnItemCollectionMetrics, nil,
 		nil, input.ConditionExpression, nil, input.ExpressionAttributeNames, input.ExpressionAttributeValues, writer)
+
+	return err
 }
 
 func encodeDeleteItemInput(ctx aws.Context, input *dynamodb.DeleteItemInput, keySchema *lru.Lru, writer *cbor.Writer) error {
@@ -299,8 +343,10 @@ func encodeDeleteItemInput(ctx aws.Context, input *dynamodb.DeleteItemInput, key
 		return err
 	}
 
-	return encodeItemOperationOptionalParams(input.ReturnValues, input.ReturnConsumedCapacity, input.ReturnItemCollectionMetrics, nil,
+	_, err = encodeItemOperationOptionalParams(input.ReturnValues, input.ReturnConsumedCapacity, input.ReturnItemCollectionMetrics, nil,
 		nil, input.ConditionExpression, nil, input.ExpressionAttributeNames, input.ExpressionAttributeValues, writer)
+
+	return err
 }
 
 func encodeUpdateItemInput(ctx aws.Context, input *dynamodb.UpdateItemInput, keySchema *lru.Lru, writer *cbor.Writer) error {
@@ -341,11 +387,12 @@ func encodeUpdateItemInput(ctx aws.Context, input *dynamodb.UpdateItemInput, key
 		return err
 	}
 
-	return encodeItemOperationOptionalParams(input.ReturnValues, input.ReturnConsumedCapacity, input.ReturnItemCollectionMetrics, nil,
+	_, err = encodeItemOperationOptionalParams(input.ReturnValues, input.ReturnConsumedCapacity, input.ReturnItemCollectionMetrics, nil,
 		nil, input.ConditionExpression, input.UpdateExpression, input.ExpressionAttributeNames, input.ExpressionAttributeValues, writer)
+	return err
 }
 
-func encodeGetItemInput(ctx aws.Context, input *dynamodb.GetItemInput, keySchema *lru.Lru, writer *cbor.Writer) error {
+func encodeGetItemInput(ctx aws.Context, input *dynamodb.GetItemInput, keySchema *lru.Lru, writer *cbor.Writer) (*cbor.Writer, error) {
 	type GetItemConfiguration struct {
 		TableSchema []dynamodb.AttributeDefinition
 		ItemInput   *dynamodb.GetItemInput
@@ -356,36 +403,56 @@ func encodeGetItemInput(ctx aws.Context, input *dynamodb.GetItemInput, keySchema
 
 	if input == nil {
 		// Input is nil, get Configuration from TOML file
-		if _, err := toml.DecodeFile("../configurations/GetItem.toml", &config); err != nil {
-			return err
+		if _, err := toml.DecodeFile("configurations/GetItem.toml", &config); err != nil {
+			return nil, err
 		}
 		input = config.ItemInput
 		keys = config.TableSchema
 	}
 
-	var err error
-	if err = input.Validate(); err != nil {
-		return err
-	}
-	if input, err = translateLegacyGetItemInput(input); err != nil {
-		return err
-	}
-	table := *input.TableName
-	_, err = getKeySchema(ctx, keySchema, table)
-	if err != nil {
-		return err
+	if writer == nil {
+		// Open the file here and save the request information
+		if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
+			inputErlang := "[<<\"" + *input.TableName + "\">>, ["
+			for indice, keyInfo := range keys {
+				inputErlang += "{<<\"" + *keyInfo.AttributeName + "\">>, {s, <<\"" + *input.Key[*keyInfo.AttributeName].S + "\">>}}"
+
+				if indice < len(keys)-1 {
+					inputErlang += ","
+				}
+			}
+			inputErlang += "], "
+			inputErlang = getItem_erlang_converter(input, inputErlang)
+			inputErlang += "],"
+			f.Write([]byte(inputErlang))
+			writer = cbor.NewWriter(bufio.NewWriter(f))
+		}
 	}
 
+	var err error
+	if err = input.Validate(); err != nil {
+		return nil, err
+	}
+	if input, err = translateLegacyGetItemInput(input); err != nil {
+		return nil, err
+	}
+	table := *input.TableName
+	// _, err = getKeySchema(ctx, keySchema, table)
+	// if err != nil {
+	// 	return err
+	// }
+
 	if err := encodeServiceAndMethod(getItem_263244906_1_Id, writer); err != nil {
-		return err
+		return nil, err
 	}
 	if err := writer.WriteBytes([]byte(table)); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := cbor.EncodeItemKey(input.Key, keys, writer); err != nil {
-		return err
+		return nil, err
 	}
+
 	return encodeItemOperationOptionalParams(nil, input.ReturnConsumedCapacity, nil, input.ConsistentRead,
 		input.ProjectionExpression, nil, nil, input.ExpressionAttributeNames, nil, writer)
 }
@@ -547,7 +614,9 @@ func encodeBatchWriteItemInput(ctx aws.Context, input *dynamodb.BatchWriteItemIn
 			}
 		}
 	}
-	return encodeItemOperationOptionalParams(nil, input.ReturnConsumedCapacity, input.ReturnItemCollectionMetrics, nil, nil, nil, nil, nil, nil, writer)
+
+	_, err = encodeItemOperationOptionalParams(nil, input.ReturnConsumedCapacity, input.ReturnItemCollectionMetrics, nil, nil, nil, nil, nil, nil, writer)
+	return err
 }
 
 func encodeBatchGetItemInput(ctx aws.Context, input *dynamodb.BatchGetItemInput, keySchema *lru.Lru, writer *cbor.Writer) error {
@@ -632,7 +701,9 @@ func encodeBatchGetItemInput(ctx aws.Context, input *dynamodb.BatchGetItemInput,
 		}
 	}
 
-	return encodeItemOperationOptionalParams(nil, input.ReturnConsumedCapacity, nil, nil, nil, nil, nil, nil, nil, writer)
+	_, err = encodeItemOperationOptionalParams(nil, input.ReturnConsumedCapacity, nil, nil, nil, nil, nil, nil, nil, writer)
+
+	return err
 }
 
 func encodeTransactWriteItemsInput(ctx aws.Context, input *dynamodb.TransactWriteItemsInput, keySchema *lru.Lru, attrNamesListToId *lru.Lru, writer *cbor.Writer) error {
@@ -896,7 +967,8 @@ func encodeTransactWriteItemsInput(ctx aws.Context, input *dynamodb.TransactWrit
 		}
 		input.ClientRequestToken = aws.String(id.String())
 	}
-	return encodeItemOperationOptionalParamsWithToken(nil, input.ReturnConsumedCapacity, input.ReturnItemCollectionMetrics, nil, nil, nil, nil, nil, nil, input.ClientRequestToken, writer)
+	_, err = encodeItemOperationOptionalParamsWithToken(nil, input.ReturnConsumedCapacity, input.ReturnItemCollectionMetrics, nil, nil, nil, nil, nil, nil, input.ClientRequestToken, writer)
+	return err
 }
 
 func encodeTransactGetItemsInput(ctx aws.Context, input *dynamodb.TransactGetItemsInput, keySchema *lru.Lru, writer *cbor.Writer) error {
@@ -1009,7 +1081,8 @@ func encodeTransactGetItemsInput(ctx aws.Context, input *dynamodb.TransactGetIte
 		return err
 	}
 
-	return encodeItemOperationOptionalParams(nil, input.ReturnConsumedCapacity, nil, nil, nil, nil, nil, nil, nil, writer)
+	_, err = encodeItemOperationOptionalParams(nil, input.ReturnConsumedCapacity, nil, nil, nil, nil, nil, nil, nil, writer)
+	return err
 }
 
 func encodeCompoundKey(key map[string]*dynamodb.AttributeValue, writer *cbor.Writer) error {
@@ -1172,51 +1245,51 @@ func encodeScanQueryOptionalParams(ctx aws.Context, index, selection, returnCons
 }
 
 func encodeItemOperationOptionalParamsWithToken(returnValues, returnConsumedCapacity, returnItemCollectionMetrics *string, consistentRead *bool,
-	projectionExp, conditionalExpr, updateExpr *string, exprAttrNames map[string]*string, exprAttrValues map[string]*dynamodb.AttributeValue, clientRequestToken *string, writer *cbor.Writer) error {
+	projectionExp, conditionalExpr, updateExpr *string, exprAttrNames map[string]*string, exprAttrValues map[string]*dynamodb.AttributeValue, clientRequestToken *string, writer *cbor.Writer) (*cbor.Writer, error) {
 	if err := writer.WriteMapStreamHeader(); err != nil {
-		return err
+		return nil, err
 	}
 
 	if consistentRead != nil {
 		if err := writer.WriteInt(requestParamConsistentRead); err != nil {
-			return err
+			return nil, err
 		}
 		if err := writer.WriteBoolean(*consistentRead); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	if dv := translateReturnValues(returnValues); dv != returnValueNone {
 		if err := writer.WriteInt(requestParamReturnValues); err != nil {
-			return err
+			return nil, err
 		}
 		if err := writer.WriteInt(dv); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	if dv := translateReturnConsumedCapacity(returnConsumedCapacity); dv != returnConsumedCapacityNone {
 		if err := writer.WriteInt(requestParamReturnConsumedCapacity); err != nil {
-			return err
+			return nil, err
 		}
 		if err := writer.WriteInt(dv); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	if dv := translateReturnItemCollectionMetrics(returnItemCollectionMetrics); dv != returnItemCollectionMetricsNone {
 		if err := writer.WriteInt(requestParamReturnItemCollectionMetrics); err != nil {
-			return err
+			return nil, err
 		}
 		if err := writer.WriteInt(dv); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	if conditionalExpr != nil || updateExpr != nil || projectionExp != nil {
 		encoded, err := parseExpressions(conditionalExpr, updateExpr, projectionExp, exprAttrNames, exprAttrValues)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		for k := range encoded {
 			var e int
@@ -1231,28 +1304,30 @@ func encodeItemOperationOptionalParamsWithToken(returnValues, returnConsumedCapa
 				continue
 			}
 			if err := writer.WriteInt(e); err != nil {
-				return err
+				return nil, err
 			}
 			if err := writer.WriteBytes(encoded[k]); err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
 
 	if clientRequestToken != nil {
 		if err := writer.WriteInt(requestParamRequestItemsClientRequestToken); err != nil {
-			return err
+			return nil, err
 		}
 		if err := writer.WriteString(*clientRequestToken); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return writer.WriteStreamBreak()
+	err := writer.WriteStreamBreak()
+
+	return writer, err
 }
 
 func encodeItemOperationOptionalParams(returnValues, returnConsumedCapacity, returnItemCollectionMetrics *string, consistentRead *bool,
-	projectionExp, conditionalExpr, updateExpr *string, exprAttrNames map[string]*string, exprAttrValues map[string]*dynamodb.AttributeValue, writer *cbor.Writer) error {
+	projectionExp, conditionalExpr, updateExpr *string, exprAttrNames map[string]*string, exprAttrValues map[string]*dynamodb.AttributeValue, writer *cbor.Writer) (*cbor.Writer, error) {
 	return encodeItemOperationOptionalParamsWithToken(returnValues, returnConsumedCapacity, returnItemCollectionMetrics, consistentRead,
 		projectionExp, conditionalExpr, updateExpr, exprAttrNames, exprAttrValues, nil, writer)
 }

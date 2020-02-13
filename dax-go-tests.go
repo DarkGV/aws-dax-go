@@ -7,6 +7,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 
@@ -96,59 +97,102 @@ func executeScanRequest(daxClient dynamodbiface.DynamoDBAPI) (*dynamodb.ScanOutp
 }
 
 func main() {
-	// Get default configuration from cluster.go, line 92
-	/*
-	*	defaultConfig = Config{
-	*		MaxPendingConnectionPerHost: 10,
-	*		ClusterUpdateInterval: time.Second*4,
-	*		ClusterUpdateThreshold: time.Millisecond*125,
-	*		Credentials: default,
-	*   }
-	 */
+	erlang_file_header :=
+		`%% This is an auto-generated file.
+%% Please do not modify this file unless you know exactly what you are doing
+%% To generate your own tests, please check the README file
+-module(daxe_acceptance_tests_SUITE).
 
+-compile(export_all).
+
+-spec all()
+		-> [atom()].
+all() ->
+	%% This function will return a list containing only one function
+	[list_check].
+
+execute_test({TestName, get_item, [TableName, Keys, Opts], Output}) ->
+	Result = list_to_binary(daxe_requests:daxe_get_item_263244906_packet_creator(TableName, daxe_ddb2:dynamize_item(Keys), Opts)),
+	case binary:match(Output, Result) of
+		{0, Value} when Value =:= size(Result) ->
+			io:fwrite("{~p, ok}", [TestName]),
+			ok;
+		_ ->
+			io:fwrite("{TestName, Result, Output} = ~n{~p, ~n~p, ~n~p}", [TestName, Result, Output]),
+			erlang:error("Go client could not match Erlang client. Check log for more information.")
+	end.
+
+-spec list_check(Config::list())
+		-> ok | no_return().
+list_check(_Config) ->
+	lists:foreach(
+		fun execute_test/1,
+		acceptance_tests()
+	).
+
+-spec acceptance_tests() 
+		-> [{TestName::atom(), RequestName::atom(), ErlcloudFormattedInput::[binary() | [{binary(), {atom(), binary() | integer()}}] | [any()]], Output::binary()}].
+acceptance_tests() -> 
+	[
+		`
 	cfg := dax.DefaultConfig()
 	cfg.HostPorts = []string{"localhost:8001"}
 	cfg.Region = "us-central-1"
 	client, _ := dax.New(cfg) // Create a new cluster
 
+	if f, err := os.Create("daxe_acceptance_tests_SUITE.erl"); err != nil { // create a file qwith the acceptance tests
+		panic(err)
+	} else {
+		// Define the header of the file here.
+		if _, err := f.Write([]byte(erlang_file_header)); err != nil {
+			f.Close()
+			panic(err)
+		}
+		f.Close()
+	}
+
 	if _, err := executeGetItemRequest(client); err != nil {
 		fmt.Println(err)
 	}
 
-	if _, err := executePutItemRequest(client); err != nil {
-		fmt.Println(err)
-	}
+	// if _, err := executePutItemRequest(client); err != nil {
+	// 	fmt.Println(err)
+	// }
 
-	if _, err := executeUpdateItemRequest(client); err != nil {
-		fmt.Println(err)
-	}
+	// if _, err := executeUpdateItemRequest(client); err != nil {
+	// 	fmt.Println(err)
+	// }
 
-	if _, err := executeDeleteItemRequest(client); err != nil {
-		fmt.Println(err)
-	}
+	// if _, err := executeDeleteItemRequest(client); err != nil {
+	// 	fmt.Println(err)
+	// }
 
-	if _, err := executeScanRequest(client); err != nil {
-		fmt.Println(err)
-	}
+	// if _, err := executeScanRequest(client); err != nil {
+	// 	fmt.Println(err)
+	// }
 
-	if _, err := executeQueryRequest(client); err != nil {
-		fmt.Println(err)
-	}
+	// if _, err := executeQueryRequest(client); err != nil {
+	// 	fmt.Println(err)
+	// }
 
-	if _, err := executeTransactWriteItemsRequest(client); err != nil {
-		fmt.Println(err)
-	}
+	// if _, err := executeTransactWriteItemsRequest(client); err != nil {
+	// 	fmt.Println(err)
+	// }
 
-	if _, err := executeTransactGetItemsRequest(client); err != nil {
-		fmt.Println(err)
-	}
+	// if _, err := executeTransactGetItemsRequest(client); err != nil {
+	// 	fmt.Println(err)
+	// }
 
-	if _, err := executeBatchGetItemRequest(client); err != nil {
-		fmt.Println(err)
-	}
+	// if _, err := executeBatchGetItemRequest(client); err != nil {
+	// 	fmt.Println(err)
+	// }
 
-	if _, err := executeBatchWriteItemRequest(client); err != nil {
-		fmt.Println(err)
+	// if _, err := executeBatchWriteItemRequest(client); err != nil {
+	// 	fmt.Println(err)
+	// }
+
+	if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
+		f.Write([]byte("\n\t]."))
 	}
 
 }
