@@ -249,23 +249,16 @@ func (client *SingleDaxClient) PutItemWithOptions(input *dynamodb.PutItemInput, 
 }
 
 func (client *SingleDaxClient) DeleteItemWithOptions(input *dynamodb.DeleteItemInput, output *dynamodb.DeleteItemOutput, opt RequestOptions) (*dynamodb.DeleteItemOutput, error) {
-	os.Mkdir("DeleteItem", 0777)
 	encoder := func(writer *cbor.Writer) (*cbor.Writer, error) {
-		return nil, encodeDeleteItemInput(opt.Context, input, client.keySchema, writer)
+		return encodeDeleteItemInput(opt.Context, input, client.keySchema, writer)
 	}
 	var err error
 	decoder := func(reader *cbor.Reader) error {
 		output, err = decodeDeleteItemOutput(opt.Context, reader, input, client.keySchema, client.attrListIdToNames, output)
 		return err
 	}
-	if err = os.Chdir("DeleteItem"); err != nil {
-		return nil, err
-	}
 	if err = client.executeWithRetries(OpDeleteItem, opt, encoder, decoder); err != nil {
 		return output, err
-	}
-	if err = os.Chdir(".."); err != nil {
-		return nil, err
 	}
 	return output, nil
 }
@@ -506,7 +499,7 @@ func (client *SingleDaxClient) build(req *request.Request) {
 			req.Error = awserr.New(request.ErrCodeSerialization, "expected *DeleteItemInput", nil)
 			return
 		}
-		if err := encodeDeleteItemInput(req.Context(), input, client.keySchema, w); err != nil {
+		if _, err := encodeDeleteItemInput(req.Context(), input, client.keySchema, w); err != nil {
 			req.Error = translateError(err)
 			return
 		}
@@ -720,6 +713,12 @@ func (client *SingleDaxClient) executeWithContext(ctx aws.Context, op string, en
 	case OpUpdateItem:
 		if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
 			f.Write([]byte("{update_item_test, update_item, ")) // Let the encoder do the rest
+			f.Close()
+			writer = nil
+		}
+	case OpDeleteItem:
+		if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
+			f.Write([]byte("{delete_item_test, delete_item, ")) // Let the encoder do the rest
 			f.Close()
 			writer = nil
 		}

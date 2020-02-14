@@ -142,6 +142,17 @@ execute_test({TestName, update_item, [TableName, Keys, Opts],  Output}) ->
 		_ ->
 			io:fwrite("{TestName, Result, Output} = ~n{~p, ~n~p, ~n~p}", [TestName, Result, Output]),
 			erlang:error("Go client could not match Erlang client. Check log for more information.")
+	end;
+execute_test({TestName, delete_item, [TableName, Keys, Opts],  Output}) ->
+	%% It is needed to change the input for this function when the operation is the put_item
+	Result = list_to_binary(daxe_requests:daxe_delete_item_1013539361_packet_creator(TableName, daxe_ddb2:dynamize_item(Keys), Opts)),
+	case binary:match(Output, Result) of
+		{0, Value} when Value =:= size(Result) ->
+			io:fwrite("{~p, ok}", [TestName]),
+			ok;
+		_ ->
+			io:fwrite("{TestName, Result, Output} = ~n{~p, ~n~p, ~n~p}", [TestName, Result, Output]),
+			erlang:error("Go client could not match Erlang client. Check log for more information.")
 	end.
 
 -spec list_check(Config::list())
@@ -195,9 +206,14 @@ acceptance_tests() ->
 		fmt.Println(err)
 	}
 
-	// if _, err := executeDeleteItemRequest(client); err != nil {
-	// 	fmt.Println(err)
-	// }
+	if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
+		f.Write([]byte(",\n\t\t"))
+		f.Close()
+	}
+
+	if _, err := executeDeleteItemRequest(client); err != nil {
+		fmt.Println(err)
+	}
 
 	// if _, err := executeScanRequest(client); err != nil {
 	// 	fmt.Println(err)

@@ -208,6 +208,7 @@ func (w *Writer) writeType(mt uint64, ui uint64) (err error) {
 	case ui < Size8:
 		w.data[w.n] = byte(mt + ui)
 		w.n++
+
 		//err = w.bw.WriteByte(byte(mt + ui))
 	case ui < 1<<8:
 		w.data[w.n] = byte(mt + Size8)

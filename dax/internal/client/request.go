@@ -156,6 +156,11 @@ func check_for_colon(inputString string) string {
 	return inputString
 }
 
+func deleteItem_to_erlang(input *dynamodb.DeleteItemInput, inputString string) string {
+	inputString += "[]"
+	return inputString
+}
+
 func getItem_erlang_converter(input *dynamodb.GetItemInput, inputString string) string {
 	inputString += "["
 	if input.ProjectionExpression != nil {
@@ -384,7 +389,7 @@ func encodePutItemInput(ctx aws.Context, input *dynamodb.PutItemInput, keySchema
 	return writer, err
 }
 
-func encodeDeleteItemInput(ctx aws.Context, input *dynamodb.DeleteItemInput, keySchema *lru.Lru, writer *cbor.Writer) error {
+func encodeDeleteItemInput(ctx aws.Context, input *dynamodb.DeleteItemInput, keySchema *lru.Lru, writer *cbor.Writer) (*cbor.Writer, error) {
 	type DeleteItemConfiguration struct {
 		TableSchema []dynamodb.AttributeDefinition
 		ItemInput   *dynamodb.DeleteItemInput
@@ -392,40 +397,60 @@ func encodeDeleteItemInput(ctx aws.Context, input *dynamodb.DeleteItemInput, key
 	var config DeleteItemConfiguration
 	var keys []dynamodb.AttributeDefinition
 	if input == nil {
-		if _, err := toml.DecodeFile("../configurations/DeleteItem.toml", &config); err != nil {
-			return err
+		if _, err := toml.DecodeFile("configurations/DeleteItem.toml", &config); err != nil {
+			return nil, err
 		}
 		input = config.ItemInput
 		keys = config.TableSchema
 	}
-	var err error
-	if err = input.Validate(); err != nil {
-		return err
-	}
-	if input, err = translateLegacyDeleteItemInput(input); err != nil {
-		return err
-	}
-	table := *input.TableName
-	_, err = getKeySchema(ctx, keySchema, *input.TableName)
-	if err != nil {
-		return nil
+
+	if writer == nil {
+		// Open the file here and save the request information
+		if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
+			inputErlang := "[<<\"" + *input.TableName + "\">>, ["
+			for indice, keyInfo := range keys {
+				inputErlang += "{<<\"" + *keyInfo.AttributeName + "\">>, {s, <<\"" + *input.Key[*keyInfo.AttributeName].S + "\">>}}"
+
+				if indice < len(keys)-1 {
+					inputErlang += ","
+				}
+			}
+			inputErlang += "], "
+			inputErlang = deleteItem_to_erlang(input, inputErlang)
+			inputErlang += "],"
+			f.Write([]byte(inputErlang))
+			writer = cbor.NewWriter(bufio.NewWriter(f))
+		}
 	}
 
+	var err error
+	if err = input.Validate(); err != nil {
+		return nil, err
+	}
+	if input, err = translateLegacyDeleteItemInput(input); err != nil {
+		return nil, err
+	}
+	table := *input.TableName
+	// _, err = getKeySchema(ctx, keySchema, *input.TableName)
+	// if err != nil {
+	// 	return nil, nil
+	// }
+
 	if err := encodeServiceAndMethod(deleteItem_1013539361_1_Id, writer); err != nil {
-		return err
+		return nil, err
 	}
 	if err := writer.WriteBytes([]byte(table)); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := cbor.EncodeItemKey(input.Key, keys, writer); err != nil {
-		return err
+		return nil, err
 	}
 
 	_, err = encodeItemOperationOptionalParams(input.ReturnValues, input.ReturnConsumedCapacity, input.ReturnItemCollectionMetrics, nil,
 		nil, input.ConditionExpression, nil, input.ExpressionAttributeNames, input.ExpressionAttributeValues, writer)
 
-	return err
+	return writer, err
 }
 
 func encodeUpdateItemInput(ctx aws.Context, input *dynamodb.UpdateItemInput, keySchema *lru.Lru, writer *cbor.Writer) (*cbor.Writer, error) {
