@@ -81,10 +81,11 @@ func (w *Writer) Flush() error {
 			w.bw.WriteString(",")
 		}
 	}
+	w.bw.WriteString(">>")
 	return w.bw.Flush()
 }
 
-func (w *Writer) newFlush() error {
+func (w *Writer) NewFlush() error {
 	for i := 0; i < w.n; i++ {
 		w.bw.WriteByte(w.data[i])
 	}

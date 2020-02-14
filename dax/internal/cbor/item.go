@@ -19,7 +19,10 @@ import (
 	"bytes"
 	"fmt"
 	"math/rand"
+	"os"
 	"sort"
+	"strconv"
+	"syscall"
 
 	"../lru"
 	"github.com/aws/aws-sdk-go/aws"
@@ -150,7 +153,7 @@ func GetEncodedItemKey(item map[string]*dynamodb.AttributeValue, keydef []dynamo
 		}
 	}
 
-	if err := w.newFlush(); err != nil {
+	if err := w.NewFlush(); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
@@ -266,15 +269,20 @@ func EncodeItemNonKeyAttributes(ctx aws.Context, item map[string]*dynamodb.Attri
 	}
 	sort.Strings(nonKeyAttrNames)
 
+	str := "["
 	nonKeyAttrValues := make([]*dynamodb.AttributeValue, len(nonKeyAttrNames))
 	for i, k := range nonKeyAttrNames {
 		nonKeyAttrValues[i] = item[k]
+		str += "[{<<\"S\">>, <<\"" + *item[k].S + "\">>}]"
+		if i < len(nonKeyAttrNames)-1 {
+			str += ","
+		}
 	}
-
-	_, err := attrNamesListToId.GetWithContext(ctx, nonKeyAttrNames)
-	if err != nil {
-		return err
-	}
+	str += "], "
+	// _, err := attrNamesListToId.GetWithContext(ctx, nonKeyAttrNames)
+	// if err != nil {
+	// 	return err
+	// }
 
 	// Gen a 64 bit-long Pseudo-Random number
 	// Any PRNG fits in here since no security measure are taken
@@ -282,7 +290,14 @@ func EncodeItemNonKeyAttributes(ctx aws.Context, item map[string]*dynamodb.Attri
 	// Use the golang standar PRNG
 
 	rand.Seed(42)
-	if err = writer.WriteInt64((rand.Int63() % 98) + 2); err != nil {
+	id := (rand.Int63() % 98) + 2
+
+	if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
+		f.Write([]byte(str + strconv.FormatInt(id, 10) + ", "))
+		f.Close()
+	}
+
+	if err := writer.WriteInt64(id); err != nil {
 		return err
 	}
 	for _, v := range nonKeyAttrValues {

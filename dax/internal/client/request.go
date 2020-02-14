@@ -149,6 +149,13 @@ const (
 
 const maxWriteBatchSize = 25
 
+func check_for_colon(inputString string) string {
+	if inputString[len(inputString)-1] != '[' {
+		inputString += ","
+	}
+	return inputString
+}
+
 func getItem_erlang_converter(input *dynamodb.GetItemInput, inputString string) string {
 	inputString += "["
 	if input.ProjectionExpression != nil {
@@ -156,9 +163,7 @@ func getItem_erlang_converter(input *dynamodb.GetItemInput, inputString string) 
 	}
 
 	if input.ReturnConsumedCapacity != nil {
-		if inputString[len(inputString)-1] != '[' {
-			inputString += ","
-		}
+		inputString = check_for_colon(inputString)
 		inputString += "{return_consumed_capacity, " + *input.ReturnConsumedCapacity + "}"
 	}
 
@@ -170,9 +175,7 @@ func getItem_erlang_converter(input *dynamodb.GetItemInput, inputString string) 
 	// }
 
 	if input.ConsistentRead != nil {
-		if inputString[len(inputString)-1] != '[' {
-			inputString += ","
-		}
+		inputString = check_for_colon(inputString)
 		inputString += "{consistent_read, " + strconv.FormatBool(*input.ConsistentRead) + "}"
 	}
 
@@ -183,6 +186,62 @@ func getItem_erlang_converter(input *dynamodb.GetItemInput, inputString string) 
 	// 	inputString += "{attributes_to_get, " + input.AttributesToGet + "}"
 	// }
 
+	inputString += "]"
+	return inputString
+}
+
+func putItem_to_erlang(input *dynamodb.PutItemInput, inputString string) string {
+	inputString += "["
+	// if input.ExpressionAttributeNames != nil {
+	// 	inputString += "{expression_attribute_names, " + input.ExpressionAttributeNames + "}"
+	// }
+	// if input.ExpressionAttributeValues != nil {
+	// 	inputString = check_for_colon(inputString)
+	// 	inputString += "{expression_attribute_values, " + input.ExpressionAttributeValues + "}"
+	// }
+	if input.ReturnConsumedCapacity != nil {
+		inputString = check_for_colon(inputString)
+		inputString += "{return_consumed_capacity, " + strings.ToLower(*input.ReturnConsumedCapacity) + "}"
+	}
+	if input.ReturnValues != nil {
+		inputString = check_for_colon(inputString)
+		inputString += "{return_values, " + strings.ToLower(*input.ReturnValues) + "}"
+	}
+	if input.ReturnItemCollectionMetrics != nil {
+		inputString = check_for_colon(inputString)
+		inputString += "{return_item_collection_metrics, " + strings.ToLower(*input.ReturnItemCollectionMetrics) + "}"
+	}
+	inputString += "]"
+	return inputString
+}
+
+func updateItem_to_erlang(input *dynamodb.UpdateItemInput, inputString string) string {
+	inputString += "["
+	if input.UpdateExpression != nil {
+		inputString += "{update_expression, " + *input.UpdateExpression + "}"
+	}
+	if input.ReturnConsumedCapacity != nil {
+		inputString = check_for_colon(inputString)
+		inputString += "{return_consumed_capacity, " + *input.ReturnConsumedCapacity + "}"
+	}
+
+	if input.ReturnItemCollectionMetrics != nil {
+		inputString = check_for_colon(inputString)
+		inputString += "{return_item_collection_metrics, " + *input.ReturnItemCollectionMetrics + "}"
+	}
+	if input.ReturnValues != nil {
+		inputString = check_for_colon(inputString)
+		inputString += "{return_values, " + *input.ReturnValues + "}"
+	}
+
+	if input.ConditionExpression != nil {
+		inputString = check_for_colon(inputString)
+		inputString += "{condition_expression, " + *input.ConditionExpression + "}"
+	}
+	if input.ConditionalOperator != nil {
+		inputString = check_for_colon(inputString)
+		inputString += "{conditional_operation, " + *input.ConditionalOperator + "}"
+	}
 	inputString += "]"
 	return inputString
 }
@@ -257,7 +316,7 @@ func encodeDefineKeySchemaInput(table string, writer *cbor.Writer) error {
 	return writer.WriteBytes([]byte(table))
 }
 
-func encodePutItemInput(ctx aws.Context, input *dynamodb.PutItemInput, keySchema *lru.Lru, attrNamesListToId *lru.Lru, writer *cbor.Writer) error {
+func encodePutItemInput(ctx aws.Context, input *dynamodb.PutItemInput, keySchema *lru.Lru, attrNamesListToId *lru.Lru, writer *cbor.Writer) (*cbor.Writer, error) {
 	type PutItemConfiguration struct {
 		TableSchema []dynamodb.AttributeDefinition
 		ItemInput   *dynamodb.PutItemInput
@@ -265,44 +324,64 @@ func encodePutItemInput(ctx aws.Context, input *dynamodb.PutItemInput, keySchema
 	var config PutItemConfiguration
 	var keys []dynamodb.AttributeDefinition
 	if input == nil {
-		if _, err := toml.DecodeFile("../configurations/PutItem.toml", &config); err != nil {
-			return err
+		if _, err := toml.DecodeFile("configurations/PutItem.toml", &config); err != nil {
+			return nil, err
 		}
 		input = config.ItemInput
 		keys = config.TableSchema
 	}
+
+	// Create the erlang syntax for putitem request
+	if writer == nil {
+		// Open the file
+		if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
+			inputErlang := "[<<\"" + *input.TableName + "\">>, ["
+			for indice, keyInfo := range keys {
+				inputErlang += "{<<\"" + *keyInfo.AttributeName + "\">>, {s, <<\"" + *input.Item[*keyInfo.AttributeName].S + "\">>}}"
+				if indice < len(keys)-1 {
+					inputErlang += ","
+				}
+			}
+			inputErlang += "],"
+			inputErlang = putItem_to_erlang(input, inputErlang)
+			inputErlang += "],"
+			f.Write([]byte(inputErlang))
+			writer = cbor.NewWriter(bufio.NewWriter(f))
+		}
+	}
 	var err error
 	if err = input.Validate(); err != nil {
-		return err
+		return nil, err
 	}
 	if input, err = translateLegacyPutItemInput(input); err != nil {
-		return err
+		return nil, err
 	}
 	table := *input.TableName
-	_, err = getKeySchema(ctx, keySchema, table)
-	if err != nil {
-		return err
-	}
+	// _, err = getKeySchema(ctx, keySchema, table)
+	// if err != nil {
+	// 	return err
+	// }
 
 	if err := encodeServiceAndMethod(putItem_N2106490455_1_Id, writer); err != nil {
-		return err
+		return nil, err
 	}
 	if err := writer.WriteBytes([]byte(table)); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := cbor.EncodeItemKey(input.Item, keys, writer); err != nil {
-		return err
+		return nil, err
 	}
 	// The AttributesListID must be random!
 	if err := encodeNonKeyAttributes(ctx, input.Item, keys, attrNamesListToId, writer); err != nil {
-		return err
+		return nil, err
 	}
+	// fmt.Println("EncodeNonKeyAttributes")
 
 	_, err = encodeItemOperationOptionalParams(input.ReturnValues, input.ReturnConsumedCapacity, input.ReturnItemCollectionMetrics, nil,
 		nil, input.ConditionExpression, nil, input.ExpressionAttributeNames, input.ExpressionAttributeValues, writer)
 
-	return err
+	return writer, err
 }
 
 func encodeDeleteItemInput(ctx aws.Context, input *dynamodb.DeleteItemInput, keySchema *lru.Lru, writer *cbor.Writer) error {
@@ -349,7 +428,7 @@ func encodeDeleteItemInput(ctx aws.Context, input *dynamodb.DeleteItemInput, key
 	return err
 }
 
-func encodeUpdateItemInput(ctx aws.Context, input *dynamodb.UpdateItemInput, keySchema *lru.Lru, writer *cbor.Writer) error {
+func encodeUpdateItemInput(ctx aws.Context, input *dynamodb.UpdateItemInput, keySchema *lru.Lru, writer *cbor.Writer) (*cbor.Writer, error) {
 	type UpdateItemConfiguration struct {
 		TableSchema []dynamodb.AttributeDefinition
 		ItemInput   *dynamodb.UpdateItemInput
@@ -357,39 +436,59 @@ func encodeUpdateItemInput(ctx aws.Context, input *dynamodb.UpdateItemInput, key
 	var config UpdateItemConfiguration
 	var keys []dynamodb.AttributeDefinition
 	if input == nil {
-		if _, err := toml.DecodeFile("../configurations/UpdateItem.toml", &config); err != nil {
-			return err
+		if _, err := toml.DecodeFile("configurations/UpdateItem.toml", &config); err != nil {
+			return nil, err
 		}
 		input = config.ItemInput
 		keys = config.TableSchema
 	}
-	var err error
-	if err = input.Validate(); err != nil {
-		return err
-	}
-	if input, err = translateLegacyUpdateItemInput(input); err != nil {
-		return err
-	}
-	table := *input.TableName
-	_, err = getKeySchema(ctx, keySchema, *input.TableName)
-	if err != nil {
-		return nil
+
+	if writer == nil {
+		// Open the file here and save the request information
+		if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
+			inputErlang := "[<<\"" + *input.TableName + "\">>, ["
+			for indice, keyInfo := range keys {
+				inputErlang += "{<<\"" + *keyInfo.AttributeName + "\">>, {s, <<\"" + *input.Key[*keyInfo.AttributeName].S + "\">>}}"
+
+				if indice < len(keys)-1 {
+					inputErlang += ","
+				}
+			}
+			inputErlang += "], "
+			inputErlang = updateItem_to_erlang(input, inputErlang)
+			inputErlang += "],"
+			f.Write([]byte(inputErlang))
+			writer = cbor.NewWriter(bufio.NewWriter(f))
+		}
 	}
 
+	var err error
+	if err = input.Validate(); err != nil {
+		return nil, err
+	}
+	if input, err = translateLegacyUpdateItemInput(input); err != nil {
+		return nil, err
+	}
+	table := *input.TableName
+	// _, err = getKeySchema(ctx, keySchema, *input.TableName)
+	// if err != nil {
+	// 	return nil, nil
+	// }
+
 	if err := encodeServiceAndMethod(updateItem_1425579023_1_Id, writer); err != nil {
-		return err
+		return nil, err
 	}
 	if err := writer.WriteBytes([]byte(table)); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := cbor.EncodeItemKey(input.Key, keys, writer); err != nil {
-		return err
+		return nil, err
 	}
 
 	_, err = encodeItemOperationOptionalParams(input.ReturnValues, input.ReturnConsumedCapacity, input.ReturnItemCollectionMetrics, nil,
 		nil, input.ConditionExpression, input.UpdateExpression, input.ExpressionAttributeNames, input.ExpressionAttributeValues, writer)
-	return err
+	return writer, err
 }
 
 func encodeGetItemInput(ctx aws.Context, input *dynamodb.GetItemInput, keySchema *lru.Lru, writer *cbor.Writer) (*cbor.Writer, error) {
@@ -1119,7 +1218,7 @@ func encodeNonKeyAttributes(ctx aws.Context, item map[string]*dynamodb.Attribute
 	if err := cbor.EncodeItemNonKeyAttributes(ctx, item, keys, attrNamesListToId, w); err != nil {
 		return err
 	}
-	if err := w.Flush(); err != nil {
+	if err := w.NewFlush(); err != nil {
 		return err
 	}
 	return writer.WriteBytes(buf.Bytes())

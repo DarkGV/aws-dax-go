@@ -234,24 +234,16 @@ func (client *SingleDaxClient) defineKeySchema(ctx aws.Context, table string) ([
 }
 
 func (client *SingleDaxClient) PutItemWithOptions(input *dynamodb.PutItemInput, output *dynamodb.PutItemOutput, opt RequestOptions) (*dynamodb.PutItemOutput, error) {
-	os.Mkdir("PutItem", 0777)
 	encoder := func(writer *cbor.Writer) (*cbor.Writer, error) {
-		return nil, encodePutItemInput(opt.Context, input, client.keySchema, client.attrNamesListToId, writer)
+		return encodePutItemInput(opt.Context, input, client.keySchema, client.attrNamesListToId, writer)
 	}
 	var err error
 	decoder := func(reader *cbor.Reader) error {
 		output, err = decodePutItemOutput(opt.Context, reader, input, client.keySchema, client.attrListIdToNames, output)
 		return err
 	}
-	// Write all the operations in the op folder
-	if err = os.Chdir("PutItem"); err != nil {
-		return nil, err
-	}
 	if err = client.executeWithRetries(OpPutItem, opt, encoder, decoder); err != nil {
 		return output, err
-	}
-	if err = os.Chdir(".."); err != nil {
-		return nil, err
 	}
 	return output, nil
 }
@@ -279,23 +271,16 @@ func (client *SingleDaxClient) DeleteItemWithOptions(input *dynamodb.DeleteItemI
 }
 
 func (client *SingleDaxClient) UpdateItemWithOptions(input *dynamodb.UpdateItemInput, output *dynamodb.UpdateItemOutput, opt RequestOptions) (*dynamodb.UpdateItemOutput, error) {
-	os.Mkdir("UpdateItem", 0777)
 	encoder := func(writer *cbor.Writer) (*cbor.Writer, error) {
-		return nil, encodeUpdateItemInput(opt.Context, input, client.keySchema, writer)
+		return encodeUpdateItemInput(opt.Context, input, client.keySchema, writer)
 	}
 	var err error
 	decoder := func(reader *cbor.Reader) error {
 		output, err = decodeUpdateItemOutput(opt.Context, reader, input, client.keySchema, client.attrListIdToNames, output)
 		return err
 	}
-	if err = os.Chdir("UpdateItem"); err != nil {
-		return nil, err
-	}
 	if err = client.executeWithRetries(OpUpdateItem, opt, encoder, decoder); err != nil {
 		return output, err
-	}
-	if err = os.Chdir(".."); err != nil {
-		return nil, err
 	}
 	return output, nil
 }
@@ -511,7 +496,7 @@ func (client *SingleDaxClient) build(req *request.Request) {
 			req.Error = awserr.New(request.ErrCodeSerialization, "expected *PutItemInput", nil)
 			return
 		}
-		if err := encodePutItemInput(req.Context(), input, client.keySchema, client.attrNamesListToId, w); err != nil {
+		if _, err := encodePutItemInput(req.Context(), input, client.keySchema, client.attrNamesListToId, w); err != nil {
 			req.Error = translateError(err)
 			return
 		}
@@ -531,7 +516,7 @@ func (client *SingleDaxClient) build(req *request.Request) {
 			req.Error = awserr.New(request.ErrCodeSerialization, "expected *UpdateItemInput", nil)
 			return
 		}
-		if err := encodeUpdateItemInput(req.Context(), input, client.keySchema, w); err != nil {
+		if _, err := encodeUpdateItemInput(req.Context(), input, client.keySchema, w); err != nil {
 			req.Error = translateError(err)
 			return
 		}
@@ -726,6 +711,18 @@ func (client *SingleDaxClient) executeWithContext(ctx aws.Context, op string, en
 			f.Close()
 			writer = nil
 		}
+	case OpPutItem:
+		if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
+			f.Write([]byte("{put_item_test, put_item, ")) // Let the encoder do the rest
+			f.Close()
+			writer = nil
+		}
+	case OpUpdateItem:
+		if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
+			f.Write([]byte("{update_item_test, update_item, ")) // Let the encoder do the rest
+			f.Close()
+			writer = nil
+		}
 	default:
 		f, err = os.OpenFile(op, os.O_WRONLY|os.O_CREATE, 0666)
 		writer = cbor.NewWriter(bufio.NewWriter(f))
@@ -742,7 +739,7 @@ func (client *SingleDaxClient) executeWithContext(ctx aws.Context, op string, en
 		return err
 	}
 	if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
-		f.Write([]byte(">>}")) // Let the encoder do the rest
+		f.Write([]byte("}")) // Let the encoder do the rest
 	}
 
 	// reader := t.CborReader()
