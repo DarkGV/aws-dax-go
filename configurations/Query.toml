@@ -7,4 +7,4 @@ TableSchema = [
 TableName = "TestTable"
 KeyConditionExpression = "PartitionKey = :value"
 [ItemInput.ExpressionAttributeValues]
-    ":value" = {N = "10"}
+    ":value" = {S = "TestPK"}

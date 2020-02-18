@@ -88,7 +88,10 @@ func (w *Writer) Flush() error {
 func (w *Writer) NewFlush() error {
 	for i := 0; i < w.n; i++ {
 		w.bw.WriteByte(w.data[i])
+		w.data[i] = 0
 	}
+
+	w.n = 0
 	return w.bw.Flush()
 }
 

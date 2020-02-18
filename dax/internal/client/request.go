@@ -581,7 +581,7 @@ func encodeGetItemInput(ctx aws.Context, input *dynamodb.GetItemInput, keySchema
 		input.ProjectionExpression, nil, nil, input.ExpressionAttributeNames, nil, writer)
 }
 
-func encodeScanInput(ctx aws.Context, input *dynamodb.ScanInput, keySchema *lru.Lru, writer *cbor.Writer) error {
+func encodeScanInput(ctx aws.Context, input *dynamodb.ScanInput, keySchema *lru.Lru, writer *cbor.Writer) (*cbor.Writer, error) {
 	type ScanConfiguration struct {
 		TableSchema []dynamodb.AttributeDefinition
 		ItemInput   *dynamodb.ScanInput
@@ -592,34 +592,44 @@ func encodeScanInput(ctx aws.Context, input *dynamodb.ScanInput, keySchema *lru.
 
 	if input == nil {
 		// Input is nil, get Configuration from TOML file
-		if _, err := toml.DecodeFile("../configurations/Scan.toml", &config); err != nil {
-			return err
+		if _, err := toml.DecodeFile("configurations/Scan.toml", &config); err != nil {
+			return nil, err
 		}
 		input = config.ItemInput
 		//keys = config.TableSchema
 	}
+
+	if writer == nil {
+		// Open the file here and save the request information
+		if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
+			inputErlang := "[<<\"" + *input.TableName + "\">>, []],"
+			f.Write([]byte(inputErlang))
+			writer = cbor.NewWriter(bufio.NewWriter(f))
+		}
+	}
+
 	var err error
 	if err = input.Validate(); err != nil {
-		return err
+		return nil, err
 	}
 	if input, err = translateLegacyScanInput(input); err != nil {
-		return err
+		return nil, err
 	}
 	if err := encodeServiceAndMethod(scan_N1875390620_1_Id, writer); err != nil {
-		return err
+		return nil, err
 	}
 	if err := writer.WriteBytes([]byte(*input.TableName)); err != nil {
-		return err
+		return nil, err
 	}
 	expressions, err := encodeExpressions(input.ProjectionExpression, input.FilterExpression, nil, input.ExpressionAttributeNames, input.ExpressionAttributeValues)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return encodeScanQueryOptionalParams(ctx, input.IndexName, input.Select, input.ReturnConsumedCapacity, input.ConsistentRead,
+	return writer, encodeScanQueryOptionalParams(ctx, input.IndexName, input.Select, input.ReturnConsumedCapacity, input.ConsistentRead,
 		expressions, input.Segment, input.TotalSegments, input.Limit, nil, input.ExclusiveStartKey, keySchema, *input.TableName, writer)
 }
 
-func encodeQueryInput(ctx aws.Context, input *dynamodb.QueryInput, keySchema *lru.Lru, writer *cbor.Writer) error {
+func encodeQueryInput(ctx aws.Context, input *dynamodb.QueryInput, keySchema *lru.Lru, writer *cbor.Writer) (*cbor.Writer, error) {
 	type QueryConfiguration struct {
 		TableSchema []dynamodb.AttributeDefinition
 		ItemInput   *dynamodb.QueryInput
@@ -630,36 +640,46 @@ func encodeQueryInput(ctx aws.Context, input *dynamodb.QueryInput, keySchema *lr
 
 	if input == nil {
 		// Input is nil, get Configuration from TOML file
-		if _, err := toml.DecodeFile("../configurations/Query.toml", &config); err != nil {
-			return err
+		if _, err := toml.DecodeFile("configurations/Query.toml", &config); err != nil {
+			return nil, err
 		}
 		input = config.ItemInput
 		//keys = config.TableSchema
 	}
+
+	if writer == nil {
+		// Open the file here and save the request information
+		if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
+			inputErlang := "[<<\"" + *input.TableName + "\">>, []],"
+			f.Write([]byte(inputErlang))
+			writer = cbor.NewWriter(bufio.NewWriter(f))
+		}
+	}
+
 	var err error
 	if err = input.Validate(); err != nil {
-		return err
+		return writer, err
 	}
 	if input, err = translateLegacyQueryInput(input); err != nil {
-		return err
+		return writer, err
 	}
 	if input.KeyConditionExpression == nil {
-		return awserr.New(request.ParamRequiredErrCode, "KeyConditionExpression cannot be nil", nil)
+		return writer, awserr.New(request.ParamRequiredErrCode, "KeyConditionExpression cannot be nil", nil)
 	}
 	if err := encodeServiceAndMethod(query_N931250863_1_Id, writer); err != nil {
-		return err
+		return writer, err
 	}
 	if err := writer.WriteBytes([]byte(*input.TableName)); err != nil {
-		return err
+		return writer, err
 	}
 	expressions, err := encodeExpressions(input.ProjectionExpression, input.FilterExpression, input.KeyConditionExpression, input.ExpressionAttributeNames, input.ExpressionAttributeValues)
 	if err != nil {
-		return err
+		return writer, err
 	}
 	if err = writer.WriteBytes(expressions[parser.KeyConditionExpr]); err != nil {
-		return err
+		return writer, err
 	}
-	return encodeScanQueryOptionalParams(ctx, input.IndexName, input.Select, input.ReturnConsumedCapacity, input.ConsistentRead,
+	return writer, encodeScanQueryOptionalParams(ctx, input.IndexName, input.Select, input.ReturnConsumedCapacity, input.ConsistentRead,
 		expressions, nil, nil, input.Limit, input.ScanIndexForward, input.ExclusiveStartKey, keySchema, *input.TableName, writer)
 }
 
@@ -673,12 +693,13 @@ func encodeBatchWriteItemInput(ctx aws.Context, input *dynamodb.BatchWriteItemIn
 
 	if input == nil {
 		// Input is nil, get Configuration from TOML file
-		if _, err := toml.DecodeFile("../configurations/BatchWriteItem.toml", &config); err != nil {
+		if _, err := toml.DecodeFile("configurations/BatchWriteItem.toml", &config); err != nil {
 			panic(err)
 		}
 		input = config.ItemInput
 		keys = config.TableSchema
 	}
+
 	var err error
 	if err = input.Validate(); err != nil {
 		return err
@@ -1229,7 +1250,7 @@ func encodeCompoundKey(key map[string]*dynamodb.AttributeValue, writer *cbor.Wri
 	if err := w.WriteStreamBreak(); err != nil {
 		return err
 	}
-	if err := w.Flush(); err != nil {
+	if err := w.NewFlush(); err != nil {
 		return err
 	}
 	return writer.WriteBytes(buf.Bytes())
@@ -1494,10 +1515,6 @@ func encodeExpressions(projection, filter, keyCondition *string, exprAttrNames m
 		expressions[parser.KeyConditionExpr] = *keyCondition
 	}
 	encoder := parser.NewExpressionEncoder(expressions, exprAttrNames, exprAttrValues)
-	if _, err := encoder.Parse(); err != nil {
-		fmt.Println("Error")
-	}
-
 	return encoder.Parse()
 }
 

@@ -88,8 +88,10 @@ func NewExpressionEncoder(expr map[int]string, subs map[string]*string, vars map
 
 func (e *ExpressionEncoder) Parse() (map[int][]byte, error) {
 	if len(e.expressions) == 0 || len(e.encoded) == len(e.expressions) {
+		fmt.Println(e.encoded)
 		return e.encoded, nil
 	}
+
 	var err error
 	for k, v := range e.expressions {
 		e.reset(k)
@@ -100,6 +102,7 @@ func (e *ExpressionEncoder) Parse() (map[int][]byte, error) {
 			return nil, err
 		}
 		exprRaw := e.pop()
+
 		expr := e.genSExpr(exprRaw)
 		if e.encoded[k], err = e.fullExpr(k, expr); err != nil {
 			return nil, err
@@ -574,7 +577,7 @@ func (e *ExpressionEncoder) encodeArray(args []sexpr) sexpr {
 }
 
 func (e *ExpressionEncoder) bytes() []byte {
-	e.cborWriter.Flush()
+	e.cborWriter.NewFlush()
 	l := e.buf.Len()
 	b := make([]byte, l)
 	e.buf.Read(b)

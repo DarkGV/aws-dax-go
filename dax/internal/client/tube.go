@@ -92,7 +92,7 @@ func newTube(_ net.Conn, s session) (tube, error) {
 		closeResources()
 		return nil, err
 	}
-	if err := w.Flush(); err != nil {
+	if err := w.NewFlush(); err != nil {
 		closeResources()
 		return nil, err
 	}

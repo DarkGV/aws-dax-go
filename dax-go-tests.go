@@ -153,6 +153,17 @@ execute_test({TestName, delete_item, [TableName, Keys, Opts],  Output}) ->
 		_ ->
 			io:fwrite("{TestName, Result, Output} = ~n{~p, ~n~p, ~n~p}", [TestName, Result, Output]),
 			erlang:error("Go client could not match Erlang client. Check log for more information.")
+	end;
+execute_test({TestName, scan, [TableName, Opts],  Output}) ->
+	%% It is needed to change the input for this function when the operation is the put_item
+	Result = list_to_binary(daxe_requests:daxe_scan_N1875390620_packet_creator(TableName, Opts)),
+	case binary:match(Output, Result) of
+		{0, Value} when Value =:= size(Result) ->
+			io:fwrite("{~p, ok}", [TestName]),
+			ok;
+		_ ->
+			io:fwrite("{TestName, Result, Output} = ~n{~p, ~n~p, ~n~p}", [TestName, Result, Output]),
+			erlang:error("Go client could not match Erlang client. Check log for more information.")
 	end.
 
 -spec list_check(Config::list())
@@ -184,55 +195,85 @@ acceptance_tests() ->
 		f.Close()
 	}
 
-	if _, err := executeGetItemRequest(client); err != nil {
-		fmt.Println(err)
-	}
+	// if _, err := executeGetItemRequest(client); err != nil {
+	// 	fmt.Println(err)
+	// }
 
-	if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
-		f.Write([]byte(",\n\t\t"))
-		f.Close()
-	}
+	// if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
+	// 	f.Write([]byte(",\n\t\t"))
+	// 	f.Close()
+	// }
 
-	if _, err := executePutItemRequest(client); err != nil {
-		fmt.Println(err)
-	}
+	// if _, err := executePutItemRequest(client); err != nil {
+	// 	fmt.Println(err)
+	// }
 
-	if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
-		f.Write([]byte(",\n\t\t"))
-		f.Close()
-	}
+	// if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
+	// 	f.Write([]byte(",\n\t\t"))
+	// 	f.Close()
+	// }
 
-	if _, err := executeUpdateItemRequest(client); err != nil {
-		fmt.Println(err)
-	}
+	// if _, err := executeUpdateItemRequest(client); err != nil {
+	// 	fmt.Println(err)
+	// }
 
-	if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
-		f.Write([]byte(",\n\t\t"))
-		f.Close()
-	}
+	// if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
+	// 	f.Write([]byte(",\n\t\t"))
+	// 	f.Close()
+	// }
 
-	if _, err := executeDeleteItemRequest(client); err != nil {
-		fmt.Println(err)
-	}
+	// if _, err := executeDeleteItemRequest(client); err != nil {
+	// 	fmt.Println(err)
+	// }
+
+	// if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
+	// 	f.Write([]byte(",\n\t\t"))
+	// 	f.Close()
+	// }
 
 	// if _, err := executeScanRequest(client); err != nil {
 	// 	fmt.Println(err)
 	// }
 
-	// if _, err := executeQueryRequest(client); err != nil {
-	// 	fmt.Println(err)
+	// if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
+	// 	f.Write([]byte(",\n\t\t"))
+	// 	f.Close()
+	// }
+
+	if _, err := executeQueryRequest(client); err != nil {
+		fmt.Println(err)
+	}
+
+	// if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
+	// 	f.Write([]byte(",\n\t\t"))
+	// 	f.Close()
 	// }
 
 	// if _, err := executeTransactWriteItemsRequest(client); err != nil {
 	// 	fmt.Println(err)
 	// }
 
+	// if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
+	// 	f.Write([]byte(",\n\t\t"))
+	// 	f.Close()
+	// }
+
 	// if _, err := executeTransactGetItemsRequest(client); err != nil {
 	// 	fmt.Println(err)
 	// }
 
+	// if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
+	// 	f.Write([]byte(",\n\t\t"))
+	// 	f.Close()
+	// }
+
 	// if _, err := executeBatchGetItemRequest(client); err != nil {
 	// 	fmt.Println(err)
+	// }
+
+	// if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
+	// 	f.Write([]byte(",\n\t\t"))
+	// 	f.Close()
 	// }
 
 	// if _, err := executeBatchWriteItemRequest(client); err != nil {

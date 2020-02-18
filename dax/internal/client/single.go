@@ -294,51 +294,36 @@ func (client *SingleDaxClient) GetItemWithOptions(input *dynamodb.GetItemInput, 
 }
 
 func (client *SingleDaxClient) ScanWithOptions(input *dynamodb.ScanInput, output *dynamodb.ScanOutput, opt RequestOptions) (*dynamodb.ScanOutput, error) {
-	os.Mkdir("Scan", 0777)
 	encoder := func(writer *cbor.Writer) (*cbor.Writer, error) {
-		return nil, encodeScanInput(opt.Context, input, client.keySchema, writer)
+		return encodeScanInput(opt.Context, input, client.keySchema, writer)
 	}
 	var err error
 	decoder := func(reader *cbor.Reader) error {
 		output, err = decodeScanOutput(opt.Context, reader, input, client.keySchema, client.attrListIdToNames, output)
 		return err
 	}
-	if err = os.Chdir("Scan"); err != nil {
-		return nil, err
-	}
 	if err = client.executeWithRetries(OpScan, opt, encoder, decoder); err != nil {
 		return output, err
-	}
-	if err = os.Chdir(".."); err != nil {
-		return nil, err
 	}
 	return output, nil
 }
 
 func (client *SingleDaxClient) QueryWithOptions(input *dynamodb.QueryInput, output *dynamodb.QueryOutput, opt RequestOptions) (*dynamodb.QueryOutput, error) {
-	os.Mkdir("Query", 0777)
 	encoder := func(writer *cbor.Writer) (*cbor.Writer, error) {
-		return nil, encodeQueryInput(opt.Context, input, client.keySchema, writer)
+		return encodeQueryInput(opt.Context, input, client.keySchema, writer)
 	}
 	var err error
 	decoder := func(reader *cbor.Reader) error {
 		output, err = decodeQueryOutput(opt.Context, reader, input, client.keySchema, client.attrListIdToNames, output)
 		return err
 	}
-	if err = os.Chdir("Query"); err != nil {
-		return nil, err
-	}
 	if err = client.executeWithRetries(OpQuery, opt, encoder, decoder); err != nil {
 		return output, err
-	}
-	if err = os.Chdir(".."); err != nil {
-		return nil, err
 	}
 	return output, nil
 }
 
 func (client *SingleDaxClient) BatchWriteItemWithOptions(input *dynamodb.BatchWriteItemInput, output *dynamodb.BatchWriteItemOutput, opt RequestOptions) (*dynamodb.BatchWriteItemOutput, error) {
-	os.Mkdir("BatchWriteItem", 0777)
 	encoder := func(writer *cbor.Writer) (*cbor.Writer, error) {
 		return nil, encodeBatchWriteItemInput(opt.Context, input, client.keySchema, client.attrNamesListToId, writer)
 	}
@@ -347,14 +332,8 @@ func (client *SingleDaxClient) BatchWriteItemWithOptions(input *dynamodb.BatchWr
 		output, err = decodeBatchWriteItemOutput(opt.Context, reader, client.keySchema, client.attrListIdToNames, output)
 		return err
 	}
-	if err = os.Chdir("BatchWriteItem"); err != nil {
-		return nil, err
-	}
 	if err = client.executeWithRetries(OpBatchWriteItem, opt, encoder, decoder); err != nil {
 		return output, err
-	}
-	if err = os.Chdir(".."); err != nil {
-		return nil, err
 	}
 	return output, nil
 }
@@ -459,7 +438,7 @@ func (client *SingleDaxClient) build(req *request.Request) {
 			req.Error = awserr.New(request.ErrCodeSerialization, "expected *ScanInput", nil)
 			return
 		}
-		if err := encodeScanInput(req.Context(), input, client.keySchema, w); err != nil {
+		if _, err := encodeScanInput(req.Context(), input, client.keySchema, w); err != nil {
 			req.Error = translateError(err)
 			return
 		}
@@ -469,7 +448,7 @@ func (client *SingleDaxClient) build(req *request.Request) {
 			req.Error = awserr.New(request.ErrCodeSerialization, "expected *QueryInput", nil)
 			return
 		}
-		if err := encodeQueryInput(req.Context(), input, client.keySchema, w); err != nil {
+		if _, err := encodeQueryInput(req.Context(), input, client.keySchema, w); err != nil {
 			req.Error = translateError(err)
 			return
 		}
@@ -722,6 +701,20 @@ func (client *SingleDaxClient) executeWithContext(ctx aws.Context, op string, en
 			f.Close()
 			writer = nil
 		}
+	case OpScan:
+		if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
+			f.Write([]byte("{scan_test, scan, ")) // Let the encoder do the rest
+			f.Close()
+			writer = nil
+		}
+	case OpQuery:
+		fmt.Println("QUERY")
+		if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
+			f.Write([]byte("{query_test, q, ")) // Let the encoder do the rest
+			f.Close()
+			writer = nil
+		}
+
 	default:
 		f, err = os.OpenFile(op, os.O_WRONLY|os.O_CREATE, 0666)
 		writer = cbor.NewWriter(bufio.NewWriter(f))
@@ -739,6 +732,7 @@ func (client *SingleDaxClient) executeWithContext(ctx aws.Context, op string, en
 	}
 	if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
 		f.Write([]byte("}")) // Let the encoder do the rest
+		f.Close()
 	}
 
 	// reader := t.CborReader()
