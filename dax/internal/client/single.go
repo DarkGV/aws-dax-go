@@ -325,7 +325,7 @@ func (client *SingleDaxClient) QueryWithOptions(input *dynamodb.QueryInput, outp
 
 func (client *SingleDaxClient) BatchWriteItemWithOptions(input *dynamodb.BatchWriteItemInput, output *dynamodb.BatchWriteItemOutput, opt RequestOptions) (*dynamodb.BatchWriteItemOutput, error) {
 	encoder := func(writer *cbor.Writer) (*cbor.Writer, error) {
-		return nil, encodeBatchWriteItemInput(opt.Context, input, client.keySchema, client.attrNamesListToId, writer)
+		return encodeBatchWriteItemInput(opt.Context, input, client.keySchema, client.attrNamesListToId, writer)
 	}
 	var err error
 	decoder := func(reader *cbor.Reader) error {
@@ -339,67 +339,46 @@ func (client *SingleDaxClient) BatchWriteItemWithOptions(input *dynamodb.BatchWr
 }
 
 func (client *SingleDaxClient) BatchGetItemWithOptions(input *dynamodb.BatchGetItemInput, output *dynamodb.BatchGetItemOutput, opt RequestOptions) (*dynamodb.BatchGetItemOutput, error) {
-	os.Mkdir("BatchGetItem", 0777)
 	encoder := func(writer *cbor.Writer) (*cbor.Writer, error) {
-		return nil, encodeBatchGetItemInput(opt.Context, input, client.keySchema, writer)
+		return encodeBatchGetItemInput(opt.Context, input, client.keySchema, writer)
 	}
 	var err error
 	decoder := func(reader *cbor.Reader) error {
 		output, err = decodeBatchGetItemOutput(opt.Context, reader, input, client.keySchema, client.attrListIdToNames, output)
 		return err
 	}
-	if err = os.Chdir("BatchGetItem"); err != nil {
-		return nil, err
-	}
 	if err = client.executeWithRetries(OpBatchGetItem, opt, encoder, decoder); err != nil {
 		return output, err
-	}
-	if err = os.Chdir(".."); err != nil {
-		return nil, err
 	}
 	return output, nil
 }
 
 func (client *SingleDaxClient) TransactWriteItemsWithOptions(input *dynamodb.TransactWriteItemsInput, output *dynamodb.TransactWriteItemsOutput, opt RequestOptions) (*dynamodb.TransactWriteItemsOutput, error) {
-	os.Mkdir("TransactWriteItems", 0777)
 	encoder := func(writer *cbor.Writer) (*cbor.Writer, error) {
-		return nil, encodeTransactWriteItemsInput(opt.Context, input, client.keySchema, client.attrNamesListToId, writer)
+		return encodeTransactWriteItemsInput(opt.Context, input, client.keySchema, client.attrNamesListToId, writer)
 	}
 	var err error
 	decoder := func(reader *cbor.Reader) error {
 		output, err = decodeTransactWriteItemsOutput(opt.Context, reader, input, client.keySchema, client.attrListIdToNames, output)
 		return err
 	}
-	if err = os.Chdir("TransactWriteItems"); err != nil {
-		return nil, err
-	}
-	if err = client.executeWithRetries(OpBatchWriteItem, opt, encoder, decoder); err != nil {
+	if err = client.executeWithRetries(OpTransactWriteItems, opt, encoder, decoder); err != nil {
 		return output, err
-	}
-	if err = os.Chdir(".."); err != nil {
-		return nil, err
 	}
 	return output, nil
 }
 
 func (client *SingleDaxClient) TransactGetItemsWithOptions(input *dynamodb.TransactGetItemsInput, output *dynamodb.TransactGetItemsOutput, opt RequestOptions) (*dynamodb.TransactGetItemsOutput, error) {
-	os.Mkdir("TransactGetItems", 0777)
 	encoder := func(writer *cbor.Writer) (*cbor.Writer, error) {
-		return nil, encodeTransactGetItemsInput(opt.Context, input, client.keySchema, writer)
+		return encodeTransactGetItemsInput(opt.Context, input, client.keySchema, writer)
 	}
 	var err error
 	decoder := func(reader *cbor.Reader) error {
 		output, err = decodeTransactGetItemsOutput(opt.Context, reader, input, client.keySchema, client.attrListIdToNames, output)
 		return err
 	}
-	if err = os.Chdir("TransactGetItems"); err != nil {
-		return nil, err
-	}
-	if err = client.executeWithRetries(OpBatchWriteItem, opt, encoder, decoder); err != nil {
+	if err = client.executeWithRetries(OpTransactGetItems, opt, encoder, decoder); err != nil {
 		return output, err
-	}
-	if err = os.Chdir(".."); err != nil {
-		return nil, err
 	}
 	return output, nil
 }
@@ -458,7 +437,7 @@ func (client *SingleDaxClient) build(req *request.Request) {
 			req.Error = awserr.New(request.ErrCodeSerialization, "expected *BatchGetItemInput", nil)
 			return
 		}
-		if err := encodeBatchGetItemInput(req.Context(), input, client.keySchema, w); err != nil {
+		if _, err := encodeBatchGetItemInput(req.Context(), input, client.keySchema, w); err != nil {
 			req.Error = translateError(err)
 			return
 		}
@@ -498,7 +477,7 @@ func (client *SingleDaxClient) build(req *request.Request) {
 			req.Error = awserr.New(request.ErrCodeSerialization, "expected *BatchWriteItemInput", nil)
 			return
 		}
-		if err := encodeBatchWriteItemInput(req.Context(), input, client.keySchema, client.attrNamesListToId, w); err != nil {
+		if _, err := encodeBatchWriteItemInput(req.Context(), input, client.keySchema, client.attrNamesListToId, w); err != nil {
 			req.Error = translateError(err)
 			return
 		}
@@ -708,13 +687,35 @@ func (client *SingleDaxClient) executeWithContext(ctx aws.Context, op string, en
 			writer = nil
 		}
 	case OpQuery:
-		fmt.Println("QUERY")
 		if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
 			f.Write([]byte("{query_test, q, ")) // Let the encoder do the rest
 			f.Close()
 			writer = nil
 		}
-
+	case OpTransactGetItems:
+		if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
+			f.Write([]byte("{transact_get_items_test, transact_get_items, ")) // Let the encoder do the rest
+			f.Close()
+			writer = nil
+		}
+	case OpBatchWriteItem:
+		if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
+			f.Write([]byte("{batch_write_item_test, batch_write_item, ")) // Let the encoder do the rest
+			f.Close()
+			writer = nil
+		}
+	case OpBatchGetItem:
+		if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
+			f.Write([]byte("{batch_get_item_test, batch_get_item, ")) // Let the encoder do the rest
+			f.Close()
+			writer = nil
+		}
+	case OpTransactWriteItems:
+		if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
+			f.Write([]byte("{transact_write_items_test, transact_write_items, ")) // Let the encoder do the rest
+			f.Close()
+			writer = nil
+		}
 	default:
 		f, err = os.OpenFile(op, os.O_WRONLY|os.O_CREATE, 0666)
 		writer = cbor.NewWriter(bufio.NewWriter(f))

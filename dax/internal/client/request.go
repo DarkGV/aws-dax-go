@@ -648,9 +648,37 @@ func encodeQueryInput(ctx aws.Context, input *dynamodb.QueryInput, keySchema *lr
 	}
 
 	if writer == nil {
+		gomap_to_erlangmap := func(attributeNames map[string]*string, attributeValues map[string]*dynamodb.AttributeValue) string {
+			input := "["
+			if attributeNames != nil {
+				input += "{<<\"ExpressionAttributeNames\">>, #{"
+				ctr := 0
+				for mapKey := range attributeNames {
+					input += "<<\"" + mapKey + "\">> => \"" + *attributeNames[mapKey] + "\""
+					if ctr < len(attributeNames)-1 {
+						input += ", "
+					}
+					ctr++
+				}
+				input += "}}"
+			}
+			if attributeValues != nil {
+				input = check_for_colon(input) + "{<<\"ExpressionAttributeValues\">>, #{"
+				ctr := 0
+				for mapKey := range attributeValues {
+					input += "<<\"" + mapKey + "\">> => [{<<\"S\">>, <<\"" + *attributeValues[mapKey].S + "\">>}]"
+					if ctr < len(attributeNames)-1 {
+						input += ", "
+					}
+					ctr++
+				}
+				input += "}}"
+			}
+			return input + "]"
+		}
 		// Open the file here and save the request information
 		if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
-			inputErlang := "[<<\"" + *input.TableName + "\">>, []],"
+			inputErlang := "[<<\"" + *input.TableName + "\">>, <<\"" + *input.KeyConditionExpression + "\">>, " + gomap_to_erlangmap(input.ExpressionAttributeNames, input.ExpressionAttributeValues) + "], "
 			f.Write([]byte(inputErlang))
 			writer = cbor.NewWriter(bufio.NewWriter(f))
 		}
@@ -683,7 +711,7 @@ func encodeQueryInput(ctx aws.Context, input *dynamodb.QueryInput, keySchema *lr
 		expressions, nil, nil, input.Limit, input.ScanIndexForward, input.ExclusiveStartKey, keySchema, *input.TableName, writer)
 }
 
-func encodeBatchWriteItemInput(ctx aws.Context, input *dynamodb.BatchWriteItemInput, keySchema *lru.Lru, attrNamesListToId *lru.Lru, writer *cbor.Writer) error {
+func encodeBatchWriteItemInput(ctx aws.Context, input *dynamodb.BatchWriteItemInput, keySchema *lru.Lru, attrNamesListToId *lru.Lru, writer *cbor.Writer) (*cbor.Writer, error) {
 	type QueryConfiguration struct {
 		TableSchema map[string][]dynamodb.AttributeDefinition
 		ItemInput   *dynamodb.BatchWriteItemInput
@@ -700,71 +728,112 @@ func encodeBatchWriteItemInput(ctx aws.Context, input *dynamodb.BatchWriteItemIn
 		keys = config.TableSchema
 	}
 
+	if writer == nil {
+		inputErlang := "["
+		requestType := func(request *dynamodb.WriteRequest, attributeDef []dynamodb.AttributeDefinition) string {
+			var attributeValue map[string]*dynamodb.AttributeValue
+			returningString := "{"
+			if request.DeleteRequest != nil {
+				returningString += "delete, ["
+				attributeValue = request.DeleteRequest.Key
+			} else {
+				returningString += "put, ["
+				attributeValue = request.PutRequest.Item
+			}
+
+			for indice, attributeInformation := range attributeDef {
+
+				returningString += "{<<\"" + *attributeInformation.AttributeName + "\">>, {<<\"" + *attributeInformation.AttributeType + "\">>, <<\"" + *attributeValue[*attributeInformation.AttributeName].S + "\">>}}"
+				if indice < len(attributeDef)-1 {
+					returningString += ", "
+				}
+			}
+			returningString += "]}"
+			return returningString
+		}
+
+		for tableName := range keys {
+			inputErlang += "{<<\"" + tableName + "\">>, "
+			// n^2
+			for indice, request := range input.RequestItems[tableName] {
+				inputErlang += requestType(request, keys[tableName])
+				if indice < len(input.RequestItems[tableName])-1 {
+					inputErlang += ", "
+				}
+			}
+		}
+		inputErlang += "}], "
+		if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
+			f.Write([]byte(inputErlang))
+			writer = cbor.NewWriter(bufio.NewWriter(f))
+		}
+	}
+
 	var err error
 	if err = input.Validate(); err != nil {
-		return err
+		return nil, err
 	}
 	if err = encodeServiceAndMethod(batchWriteItem_116217951_1_Id, writer); err != nil {
-		return err
+		return nil, err
 	}
 	if err = writer.WriteMapHeader(len(input.RequestItems)); err != nil {
-		return err
+		return nil, err
 	}
 	totalRequests := 0
 	for table, wrs := range input.RequestItems {
-		_, err := getKeySchema(ctx, keySchema, table)
-		if err != nil {
-			return err
-		}
+		// _, err := getKeySchema(ctx, keySchema, table)
+		// if err != nil {
+		// 	return nil, err
+		// }
 
 		l := len(wrs)
 		if l == 0 {
-			return awserr.New(request.InvalidParameterErrCode, fmt.Sprintf("1 validation error detected: Value '{%s=%d}' at 'requestItems' failed to satisfy constraint:"+
+			return nil, awserr.New(request.InvalidParameterErrCode, fmt.Sprintf("1 validation error detected: Value '{%s=%d}' at 'requestItems' failed to satisfy constraint:"+
 				" Map value must satisfy constraint: [Member must have length less than or equal to 25, Member must have length greater than or equal to 1", table, l), nil)
 		}
 		totalRequests = totalRequests + l
 		if totalRequests > maxWriteBatchSize {
-			return awserr.New(request.InvalidParameterErrCode, fmt.Sprintf("1 validation error detected: Value '{%s=%d}' at 'requestItems' failed to satisfy constraint:"+
+			return nil, awserr.New(request.InvalidParameterErrCode, fmt.Sprintf("1 validation error detected: Value '{%s=%d}' at 'requestItems' failed to satisfy constraint:"+
 				" Map value must satisfy constraint: [Member must have length less than or equal to 25, Member must have length greater than or equal to 1", table, totalRequests), nil)
 		}
 
 		if err = writer.WriteString(table); err != nil {
-			return err
+			return nil, err
 		}
 		if err = writer.WriteArrayHeader(2 * l); err != nil {
-			return err
+			return nil, err
 		}
 
 		if hasDuplicatesWriteRequests(wrs, keys[table]) {
-			return awserr.New(request.InvalidParameterErrCode, "Provided list of item keys contains duplicates", nil)
+			return nil, awserr.New(request.InvalidParameterErrCode, "Provided list of item keys contains duplicates", nil)
 		}
 		for _, wr := range wrs {
 			if pr := wr.PutRequest; pr != nil {
 				attrs := pr.Item
 				if err = cbor.EncodeItemKey(attrs, keys[table], writer); err != nil {
-					return err
+					return nil, err
 				}
 				if err = encodeNonKeyAttributes(ctx, attrs, keys[table], attrNamesListToId, writer); err != nil {
-					return err
+					return nil, err
 				}
 			} else if dr := wr.DeleteRequest; dr != nil {
 				if err = cbor.EncodeItemKey(dr.Key, keys[table], writer); err != nil {
-					return err
+					return nil, err
 				}
 				if err = writer.WriteNull(); err != nil {
-					return err
+					return nil, err
 				}
 			} else {
-				return awserr.New(request.ParamRequiredErrCode, "Both PutRequest and DeleteRequest cannot be empty", nil)
+				return nil, awserr.New(request.ParamRequiredErrCode, "Both PutRequest and DeleteRequest cannot be empty", nil)
 			}
 		}
 	}
 
 	_, err = encodeItemOperationOptionalParams(nil, input.ReturnConsumedCapacity, input.ReturnItemCollectionMetrics, nil, nil, nil, nil, nil, nil, writer)
-	return err
+	return writer, err
 }
 
-func encodeBatchGetItemInput(ctx aws.Context, input *dynamodb.BatchGetItemInput, keySchema *lru.Lru, writer *cbor.Writer) error {
+func encodeBatchGetItemInput(ctx aws.Context, input *dynamodb.BatchGetItemInput, keySchema *lru.Lru, writer *cbor.Writer) (*cbor.Writer, error) {
 	type QueryConfiguration struct {
 		TableSchema map[string][]dynamodb.AttributeDefinition
 		ItemInput   *dynamodb.BatchGetItemInput
@@ -774,32 +843,57 @@ func encodeBatchGetItemInput(ctx aws.Context, input *dynamodb.BatchGetItemInput,
 
 	if input == nil {
 		// Input is nil, get Configuration from TOML file
-		if _, err := toml.DecodeFile("../configurations/BatchGetItem.toml", &config); err != nil {
+		if _, err := toml.DecodeFile("configurations/BatchGetItem.toml", &config); err != nil {
 			panic(err)
 		}
 		input = config.ItemInput
 		tableKeys = config.TableSchema
 	}
+	if writer == nil {
+		inputErlang := "["
+		cnt := 0
+		for tableName := range tableKeys {
+			inputErlang += "{<<\"" + tableName + "\">>, [{<<\"Keys\">>, [["
+			// n^2
+			for indice, request := range tableKeys[tableName] {
+				inputErlang += "{<<\"" + *request.AttributeName + "\">>, [{<<\"" + *request.AttributeType + "\">>, <<\"" + *input.RequestItems[tableName].Keys[0][*request.AttributeName].S + "\">>}]}"
+				if indice < len(tableKeys[tableName])-1 {
+					inputErlang += ", "
+				}
+			}
+			inputErlang += "]]}]"
+			if cnt < len(tableKeys)-1 {
+				inputErlang += ", "
+			}
+			cnt++
+		}
+		inputErlang += "}], "
+		if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
+			f.Write([]byte(inputErlang))
+			writer = cbor.NewWriter(bufio.NewWriter(f))
+		}
+	}
+
 	var err error
 	if err = input.Validate(); err != nil {
-		return err
+		return nil, err
 	}
 	if input, err = translateLegacyBatchGetItemInput(input); err != nil {
-		return err
+		return nil, err
 	}
 	if err = encodeServiceAndMethod(batchGetItem_N697851100_1_Id, writer); err != nil {
-		return err
+		return nil, err
 	}
 	if err = writer.WriteMapHeader(len(input.RequestItems)); err != nil {
-		return err
+		return nil, err
 	}
 	for table, kaas := range input.RequestItems {
 		if err = writer.WriteString(table); err != nil {
-			return err
+			return nil, err
 		}
 
 		if err = writer.WriteArrayHeader(3); err != nil {
-			return err
+			return nil, err
 		}
 
 		cr := false
@@ -807,51 +901,51 @@ func encodeBatchGetItemInput(ctx aws.Context, input *dynamodb.BatchGetItemInput,
 			cr = *kaas.ConsistentRead
 		}
 		if err = writer.WriteBoolean(cr); err != nil {
-			return err
+			return nil, err
 		}
 		if kaas.ProjectionExpression != nil {
 			expressions := make(map[int]string)
 			expressions[parser.ProjectionExpr] = *kaas.ProjectionExpression
 			encoder := parser.NewExpressionEncoder(expressions, kaas.ExpressionAttributeNames, nil)
 			if _, err = encoder.Parse(); err != nil {
-				return err
+				return nil, err
 			}
 			var buf bytes.Buffer
 			if err = encoder.Write(parser.ProjectionExpr, &buf); err != nil {
-				return err
+				return nil, err
 			}
 			if err = writer.WriteBytes(buf.Bytes()); err != nil {
-				return err
+				return nil, err
 			}
 		} else {
 			if err = writer.WriteNull(); err != nil {
-				return err
+				return nil, err
 			}
 		}
 
-		_, err := getKeySchema(ctx, keySchema, table)
-		if err != nil {
-			return err
-		}
+		// _, err := getKeySchema(ctx, keySchema, table)
+		// if err != nil {
+		// 	return nil, err
+		// }
 		if err = writer.WriteArrayHeader(len(kaas.Keys)); err != nil {
-			return err
+			return nil, err
 		}
 		if hasDuplicateKeysAndAttributes(kaas, tableKeys[table]) {
-			return awserr.New(request.InvalidParameterErrCode, "Provided list of item keys contains duplicates", nil)
+			return nil, awserr.New(request.InvalidParameterErrCode, "Provided list of item keys contains duplicates", nil)
 		}
 		for _, keys := range kaas.Keys {
 			if err = cbor.EncodeItemKey(keys, tableKeys[table], writer); err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
 
 	_, err = encodeItemOperationOptionalParams(nil, input.ReturnConsumedCapacity, nil, nil, nil, nil, nil, nil, nil, writer)
 
-	return err
+	return writer, err
 }
 
-func encodeTransactWriteItemsInput(ctx aws.Context, input *dynamodb.TransactWriteItemsInput, keySchema *lru.Lru, attrNamesListToId *lru.Lru, writer *cbor.Writer) error {
+func encodeTransactWriteItemsInput(ctx aws.Context, input *dynamodb.TransactWriteItemsInput, keySchema *lru.Lru, attrNamesListToId *lru.Lru, writer *cbor.Writer) (*cbor.Writer, error) {
 	type QueryConfiguration struct {
 		TableSchema map[string][]dynamodb.AttributeDefinition
 		ItemInput   *dynamodb.TransactWriteItemsInput
@@ -861,19 +955,65 @@ func encodeTransactWriteItemsInput(ctx aws.Context, input *dynamodb.TransactWrit
 
 	if input == nil {
 		// Input is nil, get Configuration from TOML file
-		if _, err := toml.DecodeFile("../configurations/TransactWriteItems.toml", &config); err != nil {
+		if _, err := toml.DecodeFile("configurations/TransactWriteItems.toml", &config); err != nil {
 			panic(err)
 		}
 		input = config.ItemInput
 		keys = config.TableSchema
 	}
+
+	if writer == nil {
+		inputErlang := "["
+		parseRequest := func(writeItemValue *dynamodb.TransactWriteItem, tableKeyInfo map[string][]dynamodb.AttributeDefinition) string {
+			input := "{"
+			var keysDef map[string]*dynamodb.AttributeValue
+			var tableSchema []dynamodb.AttributeDefinition
+			if writeItemValue.Delete != nil {
+				input += "delete, {<<\"" + *writeItemValue.Delete.TableName + "\">>, "
+				keysDef = writeItemValue.Delete.Key
+				tableSchema = tableKeyInfo[*writeItemValue.Delete.TableName]
+			} else if writeItemValue.ConditionCheck != nil {
+				input += "check, {<<\"" + *writeItemValue.ConditionCheck.TableName + "\">>, "
+				keysDef = writeItemValue.ConditionCheck.Key
+				tableSchema = tableKeyInfo[*writeItemValue.ConditionCheck.TableName]
+			} else if writeItemValue.Put != nil {
+				input += "put, {<<\"" + *writeItemValue.Put.TableName + "\">>, "
+				keysDef = writeItemValue.Put.Item
+				tableSchema = tableKeyInfo[*writeItemValue.Put.TableName]
+			} else {
+				input += "update, {<<\"" + *writeItemValue.Update.TableName + "\">>, "
+				keysDef = writeItemValue.Update.Key
+				tableSchema = tableKeyInfo[*writeItemValue.Update.TableName]
+			}
+			input += "["
+			for indice, tableKeys := range tableSchema {
+				input += "{<<\"" + *tableKeys.AttributeName + "\">>, {" + strings.ToLower(*tableKeys.AttributeType) + ", <<\"" + *keysDef[*tableKeys.AttributeName].S + "\">>}}"
+				if indice < len(tableSchema)-1 {
+					input += ", "
+				}
+			}
+			return input + "]}}"
+		}
+		for writeItemsIndice, writeItemsValue := range input.TransactItems {
+			inputErlang += parseRequest(writeItemsValue, keys)
+			if writeItemsIndice < len(input.TransactItems)-1 {
+				inputErlang += ", "
+			}
+		}
+		inputErlang += "],"
+		if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
+			f.Write([]byte(inputErlang))
+			writer = cbor.NewWriter(bufio.NewWriter(f))
+		}
+
+	}
 	var err error
 	if err = input.Validate(); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err = encodeServiceAndMethod(transactWriteItems_N1160037738_1_Id, writer); err != nil {
-		return err
+		return nil, err
 	}
 
 	var operationsBuf, tableNamesBuf, keysBuf, valuesBuf, conditionExpressionsBuf,
@@ -888,25 +1028,25 @@ func encodeTransactWriteItemsInput(ctx aws.Context, input *dynamodb.TransactWrit
 
 	len := len(input.TransactItems)
 	if err = operationWriter.WriteArrayHeader(len); err != nil {
-		return err
+		return nil, err
 	}
 	if err = tableNamesWriter.WriteArrayHeader(len); err != nil {
-		return err
+		return nil, err
 	}
 	if err = keysWriter.WriteArrayHeader(len); err != nil {
-		return err
+		return nil, err
 	}
 	if err = valuesWriter.WriteArrayHeader(len); err != nil {
-		return err
+		return nil, err
 	}
 	if err = conditionExpressionsWriter.WriteArrayHeader(len); err != nil {
-		return err
+		return nil, err
 	}
 	if err = updateExpressionsWriter.WriteArrayHeader(len); err != nil {
-		return err
+		return nil, err
 	}
 	if err = rvOnConditionCheckFailureWriter.WriteArrayHeader(len); err != nil {
-		return err
+		return nil, err
 	}
 
 	defer func() {
@@ -922,7 +1062,7 @@ func encodeTransactWriteItemsInput(ctx aws.Context, input *dynamodb.TransactWrit
 	tableKeySet := make(map[string]bool)
 	for _, twi := range input.TransactItems {
 		if twi == nil {
-			return awserr.New(request.ParamRequiredErrCode, "TransactWriteItem cannot be nil", nil)
+			return nil, awserr.New(request.ParamRequiredErrCode, "TransactWriteItem cannot be nil", nil)
 		}
 		var operation int
 		var tableName *string
@@ -975,148 +1115,148 @@ func encodeTransactWriteItemsInput(ctx aws.Context, input *dynamodb.TransactWrit
 			rvOnConditionCheckFailure = update.ReturnValuesOnConditionCheckFailure
 		}
 		if opCount == 0 {
-			return awserr.New(request.ParamRequiredErrCode, "Invalid Request: TransactWriteItemsInput should contain Delete or Put or Update request", nil)
+			return nil, awserr.New(request.ParamRequiredErrCode, "Invalid Request: TransactWriteItemsInput should contain Delete or Put or Update request", nil)
 		}
 		if opCount > 1 {
-			return awserr.New(request.ParamRequiredErrCode, "TransactItems can only contain one of ConditionalCheck, Put, Update or Delete", nil)
+			return nil, awserr.New(request.ParamRequiredErrCode, "TransactItems can only contain one of ConditionalCheck, Put, Update or Delete", nil)
 		}
 
 		if err := operationWriter.WriteInt(operation); err != nil {
-			return err
+			return nil, err
 		}
 		if err := tableNamesWriter.WriteBytes([]byte(*tableName)); err != nil {
-			return err
+			return nil, err
 		}
 
 		keydef := keys[*tableName]
 
-		_, err := getKeySchema(ctx, keySchema, *tableName)
-		if err != nil {
-			return nil
-		}
+		// _, err := getKeySchema(ctx, keySchema, *tableName)
+		// if err != nil {
+		// 	return nil, nil
+		// }
 
 		// Check if duplicate [key, tableName] pair exists
 		keyBytes, err := cbor.GetEncodedItemKey(item, keydef)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		keyBytes = append(keyBytes, []byte(*tableName)...)
 		tableKey := string(keyBytes)
 		_, ok := tableKeySet[tableKey]
 		if ok {
-			return awserr.New(request.ParamRequiredErrCode, "Transaction request cannot include multiple operations on one item", nil)
+			return nil, awserr.New(request.ParamRequiredErrCode, "Transaction request cannot include multiple operations on one item", nil)
 		} else {
 			tableKeySet[tableKey] = true
 		}
 
 		if err := cbor.EncodeItemKey(item, keydef, keysWriter); err != nil {
-			return err
+			return nil, err
 		}
 		switch operation {
 		case checkOperation, deleteOperation, partialUpdateOperation:
 			if err := valuesWriter.WriteNull(); err != nil {
-				return err
+				return nil, err
 			}
 		case putOperation:
 			if err := encodeNonKeyAttributes(ctx, item, keydef, attrNamesListToId, valuesWriter); err != nil {
-				return err
+				return nil, err
 			}
 		}
 
 		encoded, err := parseExpressions(conditionExpression, updateExpression, nil, expressionAttributeNames, expressionAttributeValues)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if parsedConditionExpr := encoded[parser.ConditionExpr]; parsedConditionExpr != nil {
 			if err := conditionExpressionsWriter.WriteBytes(parsedConditionExpr); err != nil {
-				return err
+				return nil, err
 			}
 		} else {
 			if err := conditionExpressionsWriter.WriteNull(); err != nil {
-				return err
+				return nil, err
 			}
 		}
 
 		if parsedUpdateExpr := encoded[parser.UpdateExpr]; parsedUpdateExpr != nil {
 			if err := updateExpressionsWriter.WriteBytes(parsedUpdateExpr); err != nil {
-				return err
+				return nil, err
 			}
 		} else {
 			if err := updateExpressionsWriter.WriteNull(); err != nil {
-				return err
+				return nil, err
 			}
 		}
 
 		if rvOnConditionCheckFailure != nil && *rvOnConditionCheckFailure == dynamodb.ReturnValuesOnConditionCheckFailureAllOld {
 			if err := rvOnConditionCheckFailureWriter.WriteInt(returnValueOnConditionCheckFailureAllOld); err != nil {
-				return err
+				return nil, err
 			}
 		} else {
 			if err := rvOnConditionCheckFailureWriter.WriteInt(returnValueOnConditionCheckFailureNone); err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
 
-	if err := operationWriter.Flush(); err != nil {
-		return err
+	if err := operationWriter.NewFlush(); err != nil {
+		return nil, err
 	}
 	if err := writer.Write(operationsBuf.Bytes()); err != nil {
-		return err
+		return nil, err
 	}
-	if err := tableNamesWriter.Flush(); err != nil {
-		return err
+	if err := tableNamesWriter.NewFlush(); err != nil {
+		return nil, err
 	}
 	if err := writer.Write(tableNamesBuf.Bytes()); err != nil {
-		return err
+		return nil, err
 	}
-	if err := keysWriter.Flush(); err != nil {
-		return err
+	if err := keysWriter.NewFlush(); err != nil {
+		return nil, err
 	}
 	if err := writer.Write(keysBuf.Bytes()); err != nil {
-		return err
+		return nil, err
 	}
-	if err := valuesWriter.Flush(); err != nil {
-		return err
+	if err := valuesWriter.NewFlush(); err != nil {
+		return nil, err
 	}
 	if err := writer.Write(valuesBuf.Bytes()); err != nil {
-		return err
+		return nil, err
 	}
 	// Write null for returnValues
 	if err := writer.WriteNull(); err != nil {
-		return err
+		return nil, err
 	}
-	if err := rvOnConditionCheckFailureWriter.Flush(); err != nil {
-		return err
+	if err := rvOnConditionCheckFailureWriter.NewFlush(); err != nil {
+		return nil, err
 	}
 	if err := writer.Write(rvOnConditionCheckFailureBuf.Bytes()); err != nil {
-		return err
+		return nil, err
 	}
-	if err := conditionExpressionsWriter.Flush(); err != nil {
-		return err
+	if err := conditionExpressionsWriter.NewFlush(); err != nil {
+		return nil, err
 	}
 	if err := writer.Write(conditionExpressionsBuf.Bytes()); err != nil {
-		return err
+		return nil, err
 	}
-	if err := updateExpressionsWriter.Flush(); err != nil {
-		return err
+	if err := updateExpressionsWriter.NewFlush(); err != nil {
+		return nil, err
 	}
 	if err := writer.Write(updateExpressionsBuf.Bytes()); err != nil {
-		return err
+		return nil, err
 	}
 
 	if input.ClientRequestToken == nil {
 		id, err := uuid.NewV4()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		input.ClientRequestToken = aws.String(id.String())
 	}
 	_, err = encodeItemOperationOptionalParamsWithToken(nil, input.ReturnConsumedCapacity, input.ReturnItemCollectionMetrics, nil, nil, nil, nil, nil, nil, input.ClientRequestToken, writer)
-	return err
+	return writer, err
 }
 
-func encodeTransactGetItemsInput(ctx aws.Context, input *dynamodb.TransactGetItemsInput, keySchema *lru.Lru, writer *cbor.Writer) error {
+func encodeTransactGetItemsInput(ctx aws.Context, input *dynamodb.TransactGetItemsInput, keySchema *lru.Lru, writer *cbor.Writer) (*cbor.Writer, error) {
 	type QueryConfiguration struct {
 		TableSchema map[string][]dynamodb.AttributeDefinition
 		ItemInput   *dynamodb.TransactGetItemsInput
@@ -1126,19 +1266,42 @@ func encodeTransactGetItemsInput(ctx aws.Context, input *dynamodb.TransactGetIte
 
 	if input == nil {
 		// Input is nil, get Configuration from TOML file
-		if _, err := toml.DecodeFile("../configurations/TransactGetItems.toml", &config); err != nil {
+		if _, err := toml.DecodeFile("configurations/TransactGetItems.toml", &config); err != nil {
 			panic(err)
 		}
 		input = config.ItemInput
 		keys = config.TableSchema
 	}
+
+	if writer == nil {
+		inputErlang := "["
+		for transactItemIndice, transactItemValue := range input.TransactItems {
+			inputErlang += "[{<<\"Get\">>, [{<<\"TableName\">>, <<\"" + *transactItemValue.Get.TableName + "\">>}, {<<\"Key\">>, ["
+			tableKeys := keys[*transactItemValue.Get.TableName]
+			for keyIndice, keyValue := range tableKeys {
+				inputErlang += "{<<\"" + *keyValue.AttributeName + "\">>, [{<<\"" + *keyValue.AttributeType + "\">>, <<\"" + *transactItemValue.Get.Key[*keyValue.AttributeName].S + "\">>}]}"
+				if keyIndice < len(tableKeys)-1 {
+					inputErlang += ", "
+				}
+			}
+			inputErlang += "]}]}]"
+			if transactItemIndice < len(input.TransactItems)-1 {
+				inputErlang += ", "
+			}
+		}
+		inputErlang += "], "
+		if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY|syscall.O_NONBLOCK, 0666); err == nil {
+			f.Write([]byte(inputErlang))
+			writer = cbor.NewWriter(bufio.NewWriter(f))
+		}
+	}
 	var err error
 	if err = input.Validate(); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err = encodeServiceAndMethod(transactGetItems_1866287579_1_Id, writer); err != nil {
-		return err
+		return nil, err
 	}
 
 	var tableNamesBuf, keysBuf, projectionExpressionsBuf bytes.Buffer
@@ -1148,13 +1311,13 @@ func encodeTransactGetItemsInput(ctx aws.Context, input *dynamodb.TransactGetIte
 
 	len := len(input.TransactItems)
 	if err = tableNamesWriter.WriteArrayHeader(len); err != nil {
-		return err
+		return nil, err
 	}
 	if err = keysWriter.WriteArrayHeader(len); err != nil {
-		return err
+		return nil, err
 	}
 	if err = projectionExpressionsWriter.WriteArrayHeader(len); err != nil {
-		return err
+		return nil, err
 	}
 
 	defer func() {
@@ -1165,7 +1328,7 @@ func encodeTransactGetItemsInput(ctx aws.Context, input *dynamodb.TransactGetIte
 
 	for _, tgi := range input.TransactItems {
 		if tgi == nil {
-			return awserr.New(request.ParamRequiredErrCode, "TransactGetItem cannot be nil", nil)
+			return nil, awserr.New(request.ParamRequiredErrCode, "TransactGetItem cannot be nil", nil)
 		}
 		var tableName *string
 		var key map[string]*dynamodb.AttributeValue
@@ -1178,56 +1341,56 @@ func encodeTransactGetItemsInput(ctx aws.Context, input *dynamodb.TransactGetIte
 		projectionExpression = get.ProjectionExpression
 
 		if err := tableNamesWriter.WriteBytes([]byte(*tableName)); err != nil {
-			return err
+			return nil, err
 		}
 
 		keydef := keys[*tableName]
-		_, err := getKeySchema(ctx, keySchema, *tableName)
-		if err != nil {
-			return err
-		}
+		// _, err := getKeySchema(ctx, keySchema, *tableName)
+		// if err != nil {
+		// 	return err
+		// }
 
 		if err := cbor.EncodeItemKey(key, keydef, keysWriter); err != nil {
-			return err
+			return nil, err
 		}
 
 		encoded, err := parseExpressions(nil, nil, projectionExpression, expressionAttributeNames, nil)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		if parsedProjectionExpr := encoded[parser.ProjectionExpr]; parsedProjectionExpr != nil {
 			if err := projectionExpressionsWriter.WriteBytes(parsedProjectionExpr); err != nil {
-				return err
+				return nil, err
 			}
 		} else {
 			if err := projectionExpressionsWriter.WriteNull(); err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
 
-	if err := tableNamesWriter.Flush(); err != nil {
-		return err
+	if err := tableNamesWriter.NewFlush(); err != nil {
+		return nil, err
 	}
 	if err := writer.Write(tableNamesBuf.Bytes()); err != nil {
-		return err
+		return nil, err
 	}
-	if err := keysWriter.Flush(); err != nil {
-		return err
+	if err := keysWriter.NewFlush(); err != nil {
+		return nil, err
 	}
 	if err := writer.Write(keysBuf.Bytes()); err != nil {
-		return err
+		return nil, err
 	}
-	if err := projectionExpressionsWriter.Flush(); err != nil {
-		return err
+	if err := projectionExpressionsWriter.NewFlush(); err != nil {
+		return nil, err
 	}
 	if err := writer.Write(projectionExpressionsBuf.Bytes()); err != nil {
-		return err
+		return nil, err
 	}
 
 	_, err = encodeItemOperationOptionalParams(nil, input.ReturnConsumedCapacity, nil, nil, nil, nil, nil, nil, nil, writer)
-	return err
+	return writer, err
 }
 
 func encodeCompoundKey(key map[string]*dynamodb.AttributeValue, writer *cbor.Writer) error {

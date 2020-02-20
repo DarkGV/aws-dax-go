@@ -164,7 +164,41 @@ execute_test({TestName, scan, [TableName, Opts],  Output}) ->
 		_ ->
 			io:fwrite("{TestName, Result, Output} = ~n{~p, ~n~p, ~n~p}", [TestName, Result, Output]),
 			erlang:error("Go client could not match Erlang client. Check log for more information.")
-	end.
+	end;
+execute_test({TestName, q, [TableName, Expression, Opts], Output}) ->
+	Result = list_to_binary(daxe_requests:daxe_query_N931250863_packet_creator(TableName, Expression, Opts)),
+	case binary:match(Output, Result) of
+		{0, Value} when Value =:= size(Result) ->
+			io:fwrite("{~p, ok}", [TestName]),
+			ok;
+		_ ->
+			io:fwrite("{TestName, Result, Output} = ~n{~p, ~n~p, ~n~p}", [TestName, Result, Output]),
+			erlang:error("Go client could not match Erlang client. Check log for more information.")
+	end;
+execute_test({TestName, batch_get_item, Items, Output}) ->
+	Result = list_to_binary(daxe_requests:daxe_batch_get_item_N697851100_packet_creator(Items, [])),
+	case binary:match(Output, Result) of
+		{0, Value} when Value =:= size(Result) ->
+			io:fwrite("{~p, ok}", [TestName]),
+			ok;
+		_ ->
+			io:fwrite("{TestName, Result, Output} = ~n{~p, ~n~p, ~n~p}", [TestName, Result, Output]),
+			erlang:error("Go client could not match Erlang client. Check log for more information.")
+	end;
+execute_test({TestName, transact_get_items, Items, Output}) ->
+	Result = list_to_binary(daxe_requests:transact_get_item_1866287579_packet_creator(Items, [])),
+	case binary:match(Output, Result) of
+		{0, Value} when Value =:= size(Result) ->
+			io:fwrite("{~p, ok}", [TestName]),
+			ok;
+		_ ->
+			io:fwrite("{TestName, Result, Output} = ~n{~p, ~n~p, ~n~p}", [TestName, Result, Output]),
+			erlang:error("Go client could not match Erlang client. Check log for more information.")
+	end;
+execute_test({TestName, _, _, _}) ->
+	io:fwrite("~p not implemented!", [TestName]);
+execute_test({TestName, _, _, _,_,_}) ->
+	io:fwrite("~p not implemented!", [TestName]).
 
 -spec list_check(Config::list())
 		-> ok | no_return().
@@ -195,90 +229,90 @@ acceptance_tests() ->
 		f.Close()
 	}
 
-	// if _, err := executeGetItemRequest(client); err != nil {
-	// 	fmt.Println(err)
-	// }
+	if _, err := executeGetItemRequest(client); err != nil {
+		fmt.Println(err)
+	}
 
-	// if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
-	// 	f.Write([]byte(",\n\t\t"))
-	// 	f.Close()
-	// }
+	if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
+		f.Write([]byte(",\n\t\t"))
+		f.Close()
+	}
 
-	// if _, err := executePutItemRequest(client); err != nil {
-	// 	fmt.Println(err)
-	// }
+	if _, err := executePutItemRequest(client); err != nil {
+		fmt.Println(err)
+	}
 
-	// if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
-	// 	f.Write([]byte(",\n\t\t"))
-	// 	f.Close()
-	// }
+	if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
+		f.Write([]byte(",\n\t\t"))
+		f.Close()
+	}
 
-	// if _, err := executeUpdateItemRequest(client); err != nil {
-	// 	fmt.Println(err)
-	// }
+	if _, err := executeUpdateItemRequest(client); err != nil {
+		fmt.Println(err)
+	}
 
-	// if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
-	// 	f.Write([]byte(",\n\t\t"))
-	// 	f.Close()
-	// }
+	if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
+		f.Write([]byte(",\n\t\t"))
+		f.Close()
+	}
 
-	// if _, err := executeDeleteItemRequest(client); err != nil {
-	// 	fmt.Println(err)
-	// }
+	if _, err := executeDeleteItemRequest(client); err != nil {
+		fmt.Println(err)
+	}
 
-	// if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
-	// 	f.Write([]byte(",\n\t\t"))
-	// 	f.Close()
-	// }
+	if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
+		f.Write([]byte(",\n\t\t"))
+		f.Close()
+	}
 
-	// if _, err := executeScanRequest(client); err != nil {
-	// 	fmt.Println(err)
-	// }
+	if _, err := executeScanRequest(client); err != nil {
+		fmt.Println(err)
+	}
 
-	// if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
-	// 	f.Write([]byte(",\n\t\t"))
-	// 	f.Close()
-	// }
+	if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
+		f.Write([]byte(",\n\t\t"))
+		f.Close()
+	}
 
 	if _, err := executeQueryRequest(client); err != nil {
 		fmt.Println(err)
 	}
 
-	// if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
-	// 	f.Write([]byte(",\n\t\t"))
-	// 	f.Close()
-	// }
+	if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
+		f.Write([]byte(",\n\t\t"))
+		f.Close()
+	}
 
-	// if _, err := executeTransactWriteItemsRequest(client); err != nil {
-	// 	fmt.Println(err)
-	// }
+	if _, err := executeTransactWriteItemsRequest(client); err != nil {
+		fmt.Println(err)
+	}
 
-	// if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
-	// 	f.Write([]byte(",\n\t\t"))
-	// 	f.Close()
-	// }
+	if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
+		f.Write([]byte(",\n\t\t"))
+		f.Close()
+	}
 
-	// if _, err := executeTransactGetItemsRequest(client); err != nil {
-	// 	fmt.Println(err)
-	// }
+	if _, err := executeTransactGetItemsRequest(client); err != nil {
+		fmt.Println(err)
+	}
 
-	// if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
-	// 	f.Write([]byte(",\n\t\t"))
-	// 	f.Close()
-	// }
+	if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
+		f.Write([]byte(",\n\t\t"))
+		f.Close()
+	}
 
-	// if _, err := executeBatchGetItemRequest(client); err != nil {
-	// 	fmt.Println(err)
-	// }
+	if _, err := executeBatchGetItemRequest(client); err != nil {
+		fmt.Println(err)
+	}
 
-	// if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
-	// 	f.Write([]byte(",\n\t\t"))
-	// 	f.Close()
-	// }
+	if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
+		f.Write([]byte(",\n\t\t"))
+		f.Close()
+	}
 
-	// if _, err := executeBatchWriteItemRequest(client); err != nil {
-	// 	fmt.Println(err)
-	// }
+	if _, err := executeBatchWriteItemRequest(client); err != nil {
+		fmt.Println(err)
+	}
 
 	if f, err := os.OpenFile("daxe_acceptance_tests_SUITE.erl", os.O_APPEND|os.O_WRONLY, 0666); err == nil {
 		f.Write([]byte("\n\t]."))

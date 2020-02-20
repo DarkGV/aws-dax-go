@@ -88,7 +88,6 @@ func NewExpressionEncoder(expr map[int]string, subs map[string]*string, vars map
 
 func (e *ExpressionEncoder) Parse() (map[int][]byte, error) {
 	if len(e.expressions) == 0 || len(e.encoded) == len(e.expressions) {
-		fmt.Println(e.encoded)
 		return e.encoded, nil
 	}
 

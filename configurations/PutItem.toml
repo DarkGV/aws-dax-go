@@ -2,6 +2,7 @@
 
 TableSchema = [
     {AttributeName = "PartitionKey", AttributeType = "S"}
+    # {AttributeName = "SortKey", AttributeType = "S"}
 ]
 
 [ItemInput] 

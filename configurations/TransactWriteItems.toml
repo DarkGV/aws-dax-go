@@ -4,6 +4,5 @@ TestTable = [{AttributeName = "PartitionKey", AttributeType = "S"}, {AttributeNa
 [ItemInput]
     TransactItems = [
         {Delete = {TableName = "TestTable",Key = {PartitionKey = {S = "PartitionKey"}, SortKey = {S = "SortKey"}}}},
-        {Put = {TableName = "TestTable",Item = {PartitionKey = {S = "Nome"}, SortKey = {S = "Idade"}} }}
+        {Put = {TableName = "TestTable",Item = {PartitionKey = {S = "Nome"}, SortKey = {S = "Idade"}, ItemData={S="bleh"}} }}
     ]
-

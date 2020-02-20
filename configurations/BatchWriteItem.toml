@@ -1,9 +1,13 @@
 [TableSchema]
-TestTable = [{AttributeName = "PartitionKey", AttributeType = "S"}, {AttributeName = "SortKey", AttributeType = "S"}]
+TestTable = [
+    {AttributeName = "PartitionKey", AttributeType = "S"}, 
+    {AttributeName = "SortKey", AttributeType = "S"}
+]
 
 [ItemInput]
     [ItemInput.RequestItems]
         TestTable = [
-            {DeleteRequest = {Key = {PartitionKey = {S = "Name"}, SortKey={S = "Idade"}}}}
+            #{DeleteRequest = {Key = {PartitionKey = {S = "Name"}, SortKey={S = "Idade"}}}},
+            {PutRequest = {Item = {PartitionKey = {S = "Name"}, SortKey={S = "Idade"}}}}
         ]
 
